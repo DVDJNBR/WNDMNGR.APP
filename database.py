@@ -12,6 +12,30 @@ from urllib.parse import quote_plus
 load_dotenv()
 
 
+def get_available_odbc_driver() -> str:
+    """
+    Détecte automatiquement le driver ODBC disponible.
+    Priorité: Driver 18 > Driver 17 > Driver 13
+    """
+    drivers = pyodbc.drivers()
+
+    # Ordre de priorité
+    preferred_drivers = [
+        "ODBC Driver 18 for SQL Server",
+        "ODBC Driver 17 for SQL Server",
+        "ODBC Driver 13 for SQL Server",
+    ]
+
+    for preferred in preferred_drivers:
+        if preferred in drivers:
+            return preferred
+
+    # Si aucun driver n'est trouvé, lever une erreur explicite
+    raise RuntimeError(
+        f"Aucun driver ODBC SQL Server trouvé. Drivers disponibles: {drivers}"
+    )
+
+
 class DatabaseConnection:
     """Gère la connexion à la base de données (Azure SQL avec Entra ID ou SQL auth, ou SQLite local)"""
 
@@ -96,10 +120,11 @@ class DatabaseConnection:
 
             # Connection string for Entra ID
             # Note: server and database are guaranteed non-None by earlier check
+            odbc_driver = get_available_odbc_driver()
             connection_url = URL.create(
                 "mssql+pyodbc",
                 query={
-                    "driver": "ODBC Driver 18 for SQL Server",
+                    "driver": odbc_driver,
                     "server": str(server),
                     "database": str(database),
                     "encrypt": "yes",
@@ -127,6 +152,7 @@ class DatabaseConnection:
             assert username is not None and password is not None
 
             # Connection string for SQL auth
+            odbc_driver = get_available_odbc_driver()
             connection_url = URL.create(
                 "mssql+pyodbc",
                 username=str(username),
@@ -134,7 +160,7 @@ class DatabaseConnection:
                 host=str(server),
                 database=str(database),
                 query={
-                    "driver": "ODBC Driver 18 for SQL Server",
+                    "driver": odbc_driver,
                     "encrypt": "yes",
                     "TrustServerCertificate": "no",
                     "Connection Timeout": "30",
