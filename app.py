@@ -42,7 +42,7 @@ with st.sidebar:
                 st.error(f"❌ Erreur de connexion")
                 st.exception(e)
 
-# Liste de toutes les tables de la base
+# Liste de toutes les tables de la base SQLite locale (20 tables)
 TABLES = [
     # Reference Tables
     ("company_roles", "Rôles des entreprises", "📋"),
@@ -51,7 +51,6 @@ TABLES = [
 
     # Entity Tables
     ("companies", "Entreprises", "🏢"),
-    ("employees", "Employés", "👷"),
     ("farms", "Fermes", "🏭"),
     ("ice_detection_systems", "Systèmes de détection de glace", "❄️"),
     ("persons", "Personnes", "👤"),
@@ -63,23 +62,15 @@ TABLES = [
     ("farm_referents", "Référents de fermes", "📊"),
 
     # Look-up Tables
-    ("farm_actual_performances", "Performances réelles", "📈"),
     ("farm_administrations", "Administrations", "📋"),
-    ("farm_electrical_delegations", "Délégations électriques", "⚡"),
     ("farm_environmental_installations", "Installations environnementales", "🌱"),
-    ("farm_financial_guarantees", "Garanties financières", "💰"),
     ("farm_ice_detection_systems", "Systèmes IDS par ferme", "❄️"),
     ("farm_locations", "Localisations", "📍"),
     ("farm_om_contracts", "Contrats O&M", "📄"),
     ("farm_statuses", "Statuts des fermes", "📊"),
     ("farm_substation_details", "Détails sous-stations", "🔌"),
-    ("farm_target_performances", "Performances cibles", "🎯"),
-    ("farm_tariffs", "Tarifs", "💶"),
     ("farm_tcma_contracts", "Contrats TCMA", "📄"),
     ("farm_turbine_details", "Détails turbines", "⚡"),
-
-    # Metadata
-    ("ingestion_versions", "Versions d'ingestion", "📦"),
 ]
 
 # Affichage des statistiques
