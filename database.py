@@ -1,10 +1,12 @@
 import os
 import struct
+import time
 from typing import Optional
 from dotenv import load_dotenv
 import streamlit as st
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Engine
+from sqlalchemy.exc import OperationalError
 from azure.identity import ClientSecretCredential
 import pyodbc
 from urllib.parse import quote_plus
@@ -129,7 +131,7 @@ class DatabaseConnection:
                     "database": str(database),
                     "encrypt": "yes",
                     "TrustServerCertificate": "no",
-                    "Connection Timeout": "30",
+                    "Connection Timeout": "120",  # 2 minutes for cold start
                 }
             )
 
@@ -163,7 +165,7 @@ class DatabaseConnection:
                     "driver": odbc_driver,
                     "encrypt": "yes",
                     "TrustServerCertificate": "no",
-                    "Connection Timeout": "30",
+                    "Connection Timeout": "120",  # 2 minutes for cold start
                 }
             )
 
@@ -186,34 +188,55 @@ def get_database_engine(use_local: bool = False) -> Engine:
     return db.get_engine()
 
 
-def execute_query(query: str, params: Optional[dict] = None, use_local: bool = False):
+def execute_query(query: str, params: Optional[dict] = None, use_local: bool = False, max_retries: int = 3):
     """
-    Exécute une requête SQL et retourne les résultats
+    Exécute une requête SQL et retourne les résultats avec retry pour cold start
 
     Args:
         query: Requête SQL à exécuter (utilisez :param pour les paramètres nommés)
         params: Dictionnaire de paramètres pour la requête (optional)
         use_local: True pour SQLite local, False pour Azure SQL
+        max_retries: Nombre de tentatives en cas de timeout (default: 3)
 
     Returns:
         Liste de dictionnaires pour SELECT, nombre de lignes affectées sinon
     """
-    try:
-        engine = get_database_engine(use_local=use_local)
+    last_error = None
 
-        with engine.connect() as conn:
-            result = conn.execute(text(query), params or {})
+    for attempt in range(max_retries):
+        try:
+            engine = get_database_engine(use_local=use_local)
 
-            # Pour les SELECT
-            if query.strip().upper().startswith('SELECT'):
-                rows = result.fetchall()
-                # Convertit en liste de dictionnaires
-                return [dict(row._mapping) for row in rows]
+            with engine.connect() as conn:
+                result = conn.execute(text(query), params or {})
+
+                # Pour les SELECT
+                if query.strip().upper().startswith('SELECT'):
+                    rows = result.fetchall()
+                    # Convertit en liste de dictionnaires
+                    return [dict(row._mapping) for row in rows]
+                else:
+                    # Pour les INSERT, UPDATE, DELETE
+                    conn.commit()
+                    return result.rowcount
+
+        except OperationalError as e:
+            last_error = e
+            # Retry uniquement pour les timeouts (cold start)
+            if "timeout" in str(e).lower() and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 5  # 5s, 10s, 15s...
+                if hasattr(st, 'warning'):
+                    st.warning(f"⏳ Cold start détecté, nouvelle tentative dans {wait_time}s... (tentative {attempt + 2}/{max_retries})")
+                time.sleep(wait_time)
+                continue
             else:
-                # Pour les INSERT, UPDATE, DELETE
-                conn.commit()
-                return result.rowcount
+                # Pas un timeout ou dernière tentative
+                break
+        except Exception as e:
+            last_error = e
+            break
 
-    except Exception as e:
-        st.error(f"Erreur lors de l'exécution de la requête: {str(e)}")
-        return None
+    # Si on arrive ici, toutes les tentatives ont échoué
+    if hasattr(st, 'error'):
+        st.error(f"Erreur lors de l'exécution de la requête: {str(last_error)}")
+    return None
