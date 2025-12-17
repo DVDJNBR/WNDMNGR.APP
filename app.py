@@ -5,7 +5,7 @@ from database import execute_query, get_database_engine
 # Configuration de la page
 st.set_page_config(
     page_title="Wind Manager - DEBUG V3",
-    page_icon="🐛",
+    page_icon="",
     layout="wide"
 )
 
