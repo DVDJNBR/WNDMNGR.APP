@@ -45,17 +45,48 @@ class DatabaseConnection:
                 return st.secrets[key]
             return os.getenv(key, default)
 
-        # Récupération des credentials
-        # On cherche d'abord les clés spécifiques SUPABASE, puis génériques DB
-        host = get_config('SUPABASE_HOST') or get_config('DB_HOST')
-        database = get_config('SUPABASE_DATABASE') or get_config('DB_NAME')
-        user = get_config('SUPABASE_USER') or get_config('DB_USER')
-        password = get_config('SUPABASE_PASSWORD') or get_config('DB_PASSWORD')
-        port = get_config('SUPABASE_PORT') or get_config('DB_PORT', 5432)
+        # 1. Tentative de connexion via SUPABASE_URL + SUPABASE_DB_PASSWORD
+        # C'est la méthode demandée (compatible avec les secrets "API" + mot de passe DB)
+        supabase_url = get_config('SUPABASE_URL')
+        db_password = get_config('SUPABASE_DB_PASSWORD')
+        
+        # Variables de connexion finales
+        host = None
+        user = None
+        password = None
+        database = None
+        port = 5432
+
+        if supabase_url and db_password:
+            try:
+                # On essaie de déduire l'hôte DB à partir de l'URL API
+                # Format URL API: https://<project_ref>.supabase.co
+                # Format Host DB: db.<project_ref>.supabase.co
+                from urllib.parse import urlparse
+                
+                parsed = urlparse(supabase_url)
+                hostname = parsed.hostname # ex: abcdef.supabase.co
+                
+                if hostname:
+                    host = f"db.{hostname}"
+                    user = "postgres" # User par défaut
+                    password = db_password
+                    database = "postgres" # DB par défaut
+                    port = 5432
+            except Exception as e:
+                print(f"Erreur lors du parsing de SUPABASE_URL: {e}")
+
+        # 2. Si la méthode 1 n'a pas abouti, on tente la config détaillée (Fallback)
+        if not host:
+            host = get_config('SUPABASE_HOST') or get_config('DB_HOST')
+            database = get_config('SUPABASE_DATABASE') or get_config('DB_NAME')
+            user = get_config('SUPABASE_USER') or get_config('DB_USER')
+            password = get_config('SUPABASE_PASSWORD') or get_config('DB_PASSWORD')
+            port = get_config('SUPABASE_PORT') or get_config('DB_PORT', 5432)
 
         if not all([host, database, user, password]):
             missing = []
-            if not host: missing.append("HOST")
+            if not host: missing.append("HOST (ou SUPABASE_URL invalide)")
             if not database: missing.append("DATABASE")
             if not user: missing.append("USER")
             if not password: missing.append("PASSWORD")
