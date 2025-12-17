@@ -15,17 +15,11 @@ class DatabaseConnection:
 
     def _resolve_ipv4(self, hostname: str) -> str:
         """Résout un nom d'hôte en adresse IPv4 pour éviter les erreurs IPv6"""
-        try:
-            # getaddrinfo avec AF_INET force la recherche d'adresses IPv4
-            addr_info = socket.getaddrinfo(hostname, 5432, socket.AF_INET)
-            # On prend la première IP trouvée (format: (family, type, proto, canonname, sockaddr))
-            # sockaddr est un tuple (ip, port)
-            ipv4_address = addr_info[0][4][0]
-            print(f"DNS Resolved: {hostname} -> {ipv4_address}")
-            return ipv4_address
-        except Exception as e:
-            st.warning(f"Impossible de résoudre l'IPv4 pour {hostname}: {e}")
-            return hostname # Fallback sur le nom d'hôte
+        # getaddrinfo avec AF_INET force la recherche d'adresses IPv4
+        # On ne met pas de try/except ici pour voir l'erreur si la resolution echoue
+        addr_info = socket.getaddrinfo(hostname, 5432, socket.AF_INET)
+        ipv4_address = addr_info[0][4][0]
+        return ipv4_address
 
     def _create_supabase_engine(self) -> Engine:
         """Crée un engine SQLAlchemy pour Supabase (PostgreSQL)"""
@@ -42,29 +36,30 @@ class DatabaseConnection:
             raise ValueError("Configuration manquante (SUPABASE_URL, SUPABASE_DB_PASSWORD)")
 
         # 2. Extraction Host
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(supabase_url)
-            hostname = parsed.hostname
-            
-            if not hostname:
-                raise ValueError("Impossible de lire le hostname")
-            
-            # Hostname théorique Supabase
-            db_hostname = f"db.{hostname}" if not hostname.startswith("db.") else hostname
-            
-            # FORCE IPV4 RESOLUTION
-            host = self._resolve_ipv4(db_hostname)
-            
-        except Exception as e:
-            raise ValueError(f"Erreur format SUPABASE_URL: {e}")
+        from urllib.parse import urlparse
+        parsed = urlparse(supabase_url)
+        hostname = parsed.hostname
+        
+        if not hostname:
+            raise ValueError("Impossible de lire le hostname")
+        
+        # Hostname théorique Supabase
+        db_hostname = f"db.{hostname}" if not hostname.startswith("db.") else hostname
+        
+        # DEBUG: Afficher ce qu'on essaie de faire
+        st.write(f"🔍 Résolution DNS pour: {db_hostname}")
+        
+        # FORCE IPV4 RESOLUTION
+        host = self._resolve_ipv4(db_hostname)
+        
+        st.write(f"✅ IP Résolue: {host}") # On doit voir une IP ici !
 
         # 3. Paramètres de connexion
         connection_url = URL.create(
             "postgresql+psycopg2",
             username="postgres",
             password=str(db_password),
-            host=str(host),
+            host=str(host), # On passe l'IP directement
             port=5432, 
             database="postgres",
         )
@@ -74,11 +69,7 @@ class DatabaseConnection:
             connection_url,
             pool_pre_ping=True,
             connect_args={
-                "connect_timeout": 10,
-                "keepalives": 1,
-                "keepalives_idle": 30,
-                "keepalives_interval": 10,
-                "keepalives_count": 5
+                "connect_timeout": 10
             }
         )
         return engine
