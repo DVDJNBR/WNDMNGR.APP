@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("☁️ Wind Manager (Supabase Only)")
+st.title("☁️ WindManager (Supabase Only)")
 
 # Sidebar Debug
 with st.sidebar:
