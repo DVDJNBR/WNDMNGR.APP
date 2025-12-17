@@ -13,6 +13,20 @@ class DatabaseConnection:
     def get_engine(self) -> Engine:
         return self._create_supabase_engine()
 
+    def _resolve_ipv4(self, hostname: str) -> str:
+        """Résout un nom d'hôte en adresse IPv4 pour éviter les erreurs IPv6"""
+        try:
+            # getaddrinfo avec AF_INET force la recherche d'adresses IPv4
+            addr_info = socket.getaddrinfo(hostname, 5432, socket.AF_INET)
+            # On prend la première IP trouvée (format: (family, type, proto, canonname, sockaddr))
+            # sockaddr est un tuple (ip, port)
+            ipv4_address = addr_info[0][4][0]
+            print(f"DNS Resolved: {hostname} -> {ipv4_address}")
+            return ipv4_address
+        except Exception as e:
+            st.warning(f"Impossible de résoudre l'IPv4 pour {hostname}: {e}")
+            return hostname # Fallback sur le nom d'hôte
+
     def _create_supabase_engine(self) -> Engine:
         """Crée un engine SQLAlchemy pour Supabase (PostgreSQL)"""
         
@@ -36,22 +50,16 @@ class DatabaseConnection:
             if not hostname:
                 raise ValueError("Impossible de lire le hostname")
             
-            # SUPABASE POOLER FIX:
-            # Au lieu de se connecter directement à db.projet.supabase.co
-            # On utilise le DNS direct ou on reste standard.
-            # L'erreur IPv6 suggère qu'on doit peut-être laisser le système gérer mieux
-            # ou utiliser le port 6543 (Transaction Pooler) qui est recommandé pour le serverless.
+            # Hostname théorique Supabase
+            db_hostname = f"db.{hostname}" if not hostname.startswith("db.") else hostname
             
-            host = f"db.{hostname}" if not hostname.startswith("db.") else hostname
+            # FORCE IPV4 RESOLUTION
+            host = self._resolve_ipv4(db_hostname)
             
         except Exception as e:
             raise ValueError(f"Erreur format SUPABASE_URL: {e}")
 
         # 3. Paramètres de connexion
-        # On tente le port 5432 (Session) par défaut.
-        # Si ça échoue encore, on tentera 6543.
-        # L'ajout de connect_timeout est crucial.
-        
         connection_url = URL.create(
             "postgresql+psycopg2",
             username="postgres",
@@ -61,8 +69,7 @@ class DatabaseConnection:
             database="postgres",
         )
 
-        # 4. Création de l'engine avec options TCP Keepalive pour éviter les coupures
-        # et on force le mode IPv4 si possible via connect_args options (moins standard en python pur)
+        # 4. Création de l'engine
         engine = create_engine(
             connection_url,
             pool_pre_ping=True,
@@ -98,6 +105,5 @@ def execute_query(query: str, params: dict = None):
                 conn.commit()
                 return result.rowcount
     except Exception as e:
-        # Affichage technique pour debug
         st.error(f"Erreur SQL: {e}")
         return None
