@@ -39,4 +39,5 @@ jobs:
       - name: Run pytest
         env:
           ENV_FOR_DYNACONF: development
+          PYTHONPATH: .
         run: pytest TESTS/ -v --tb=short
