@@ -1,99 +1,111 @@
 import os
 import streamlit as st
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine, URL
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
-class DatabaseConnection:
-    """Gère la connexion à la base de données Supabase PostgreSQL"""
-
-    def __init__(self):
-        self.engine = None
-
-    def get_engine(self) -> Engine:
-        return self._create_supabase_engine()
-
-    def _create_supabase_engine(self) -> Engine:
-        """Crée un engine SQLAlchemy pour Supabase (PostgreSQL)"""
-        
-        # 1. Récupération des secrets
-        if hasattr(st, 'secrets'):
-            supabase_url = st.secrets.get('SUPABASE_URL')
-            db_password = st.secrets.get('SUPABASE_DB_PASSWORD')
-        else:
-            supabase_url = os.getenv('SUPABASE_URL')
-            db_password = os.getenv('SUPABASE_DB_PASSWORD')
-
-        if not supabase_url or not db_password:
-            raise ValueError("Configuration manquante")
-
-        # 2. Extraction Host
-        from urllib.parse import urlparse
-        parsed = urlparse(supabase_url)
-        hostname = parsed.hostname
-        
-        # Hostname théorique Supabase
-        # Pour le pooling, c'est souvent la même adresse mais port 6543
-        host = f"db.{hostname}" if not hostname.startswith("db.") else hostname
-        
-        st.write(f"🔄 Tentative connexion via Pooler (Port 6543) sur: {host}")
-
-        # 3. Paramètres de connexion POOLER (Transaction Mode)
-        # Port 6543 est recommandé pour les environnements serverless (Streamlit)
-        # On désactive prepared statements pour la compatibilité pgbouncer/supavisor
-        
-        connection_url = URL.create(
-            "postgresql+psycopg2",
-            username=f"postgres.{hostname.split('.')[0]}", # Format user often required for pooler: user.projectref
-            password=str(db_password),
-            host=str(host),
-            port=6543, 
-            database="postgres",
-        )
-        
-        # NOTE IMPORTANTE:
-        # Avec le pooler Supabase, l'utilisateur doit souvent être au format:
-        # [db_user].[project_ref]
-        # Mais essayons d'abord avec "postgres" simple, si ça fail, on changera.
-        # Edit: Je vais utiliser le user simple d'abord car Supavisor le supporte maintenant.
-        
-        connection_url = URL.create(
-            "postgresql+psycopg2",
-            username="postgres", 
-            password=str(db_password),
-            host=str(host),
-            port=6543, 
-            database="postgres",
-        )
-
-        # 4. Création de l'engine
-        engine = create_engine(
-            connection_url,
-            pool_pre_ping=True,
-            connect_args={
-                "connect_timeout": 15,
-                # "sslmode": "require" # Default in psycopg2
-            }
-        )
-        return engine
-
+# Charger le .env en local (ignoré sur Streamlit Cloud qui utilise secrets.toml)
+load_dotenv()
 
 @st.cache_resource
-def get_database_engine() -> Engine:
-    db = DatabaseConnection()
-    return db.get_engine()
-
-
-def execute_query(query: str, params: dict = None):
+def init_supabase_connection() -> Client:
+    """
+    Initialise la connexion au client Supabase.
+    Utilise l'API REST Supabase au lieu de connexion PostgreSQL directe.
+    Cela évite les problèmes IPv4/IPv6 et est la méthode recommandée par Streamlit.
+    """
+    # Récupération des secrets
+    # Essayer d'abord st.secrets (Streamlit Cloud), puis les variables d'environnement (local)
     try:
-        engine = get_database_engine()
-        with engine.connect() as conn:
-            result = conn.execute(text(query), params or {})
-            if query.strip().upper().startswith('SELECT'):
-                rows = result.fetchall()
-                return [dict(row._mapping) for row in rows]
-            else:
-                conn.commit()
-                return result.rowcount
+        supabase_url = st.secrets.get('SUPABASE_URL')
+        supabase_key = st.secrets.get('SUPABASE_API_KEY')
+    except (FileNotFoundError, KeyError):
+        # En local, utiliser les variables d'environnement depuis .env
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_API_KEY')
+
+    if not supabase_url or not supabase_key:
+        raise ValueError("Configuration manquante: SUPABASE_URL et SUPABASE_API_KEY requis")
+
+    st.write(f"Connexion au client Supabase: {supabase_url}")
+
+    try:
+        client = create_client(supabase_url, supabase_key)
+        st.write("Client Supabase initialisé avec succès")
+        return client
     except Exception as e:
-        st.error(f"Erreur SQL: {e}")
+        st.error(f"Erreur lors de l'initialisation du client Supabase: {e}")
+        raise
+
+
+def execute_query(table: str, columns: str = "*", filters: dict = None):
+    """
+    Exécute une requête SELECT sur une table Supabase.
+
+    Args:
+        table: Nom de la table
+        columns: Colonnes à sélectionner (défaut: "*")
+        filters: Dictionnaire de filtres (ex: {"status": "active"})
+
+    Returns:
+        Liste de dictionnaires représentant les lignes
+    """
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).select(columns)
+
+        # Appliquer les filtres si fournis
+        if filters:
+            for key, value in filters.items():
+                query = query.eq(key, value)
+
+        response = query.execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la requête sur {table}: {e}")
+        return None
+
+
+def insert_data(table: str, data: dict):
+    """Insert des données dans une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        response = client.table(table).insert(data).execute()
+        st.success(f"Données insérées dans {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de l'insertion dans {table}: {e}")
+        return None
+
+
+def update_data(table: str, data: dict, filters: dict):
+    """Update des données dans une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).update(data)
+
+        for key, value in filters.items():
+            query = query.eq(key, value)
+
+        response = query.execute()
+        st.success(f"Données mises à jour dans {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la mise à jour dans {table}: {e}")
+        return None
+
+
+def delete_data(table: str, filters: dict):
+    """Supprime des données d'une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).delete()
+
+        for key, value in filters.items():
+            query = query.eq(key, value)
+
+        response = query.execute()
+        st.success(f"Données supprimées de {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la suppression dans {table}: {e}")
         return None

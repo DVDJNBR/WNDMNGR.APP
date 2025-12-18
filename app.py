@@ -1,30 +1,36 @@
 import streamlit as st
 import pandas as pd
-from database import execute_query, get_database_engine
+from database import execute_query, init_supabase_connection
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Wind Manager - DEBUG V3",
+    page_title="Wind Manager - Database",
     page_icon="",
     layout="wide"
 )
 
-st.title("Windmanager - DEBUG V3 (Force IPv4)")
-st.caption("Si vous ne voyez pas ce titre, Streamlit n'a pas mis à jour le code.")
+st.title("Windmanager - Connexion Base de Données")
+st.caption("Utilisation du client Supabase via API REST")
 
 # Sidebar Debug
 with st.sidebar:
     st.header("État de la connexion")
     if st.button("Tester la connexion"):
-        res = execute_query("SELECT version();")
-        if res:
-            st.success(f"Version DB: {res[0]['version']}")
+        try:
+            client = init_supabase_connection()
+            st.success("Client Supabase connecté")
+        except Exception as e:
+            st.error(f"Erreur: {e}")
 
 # Liste des tables
 TABLES = [("companies", "Entreprises")]
 
 for table_name, label in TABLES:
-    st.write(f"Testing table: {table_name}")
-    data = execute_query(f"SELECT * FROM {table_name} LIMIT 1")
+    st.subheader(f"Table: {label} ({table_name})")
+    data = execute_query(table=table_name, columns="*")
     if data:
-        st.write(data)
+        st.success(f"{len(data)} enregistrement(s) trouvé(s)")
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.warning(f"Aucune donnée dans la table {table_name}")
