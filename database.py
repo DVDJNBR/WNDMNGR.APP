@@ -1,242 +1,111 @@
 import os
-import struct
-import time
-from typing import Optional
-from dotenv import load_dotenv
 import streamlit as st
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import URL, Engine
-from sqlalchemy.exc import OperationalError
-from azure.identity import ClientSecretCredential
-import pyodbc
-from urllib.parse import quote_plus
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
+# Charger le .env en local (ignoré sur Streamlit Cloud qui utilise secrets.toml)
 load_dotenv()
 
-
-def get_available_odbc_driver() -> str:
-    """
-    Détecte automatiquement le driver ODBC disponible.
-    Priorité: Driver 18 > Driver 17 > Driver 13
-    """
-    drivers = pyodbc.drivers()
-
-    # Ordre de priorité
-    preferred_drivers = [
-        "ODBC Driver 18 for SQL Server",
-        "ODBC Driver 17 for SQL Server",
-        "ODBC Driver 13 for SQL Server",
-    ]
-
-    for preferred in preferred_drivers:
-        if preferred in drivers:
-            return preferred
-
-    # Si aucun driver n'est trouvé, lever une erreur explicite
-    raise RuntimeError(
-        f"Aucun driver ODBC SQL Server trouvé. Drivers disponibles: {drivers}"
-    )
-
-
-class DatabaseConnection:
-    """Gère la connexion à la base de données (Azure SQL avec Entra ID ou SQL auth, ou SQLite local)"""
-
-    def __init__(self, use_local: bool = False):
-        self.use_local = use_local
-        self.engine: Optional[Engine] = None
-
-    def get_engine(self) -> Engine:
-        """Retourne le SQLAlchemy engine approprié selon l'environnement"""
-        if self.use_local:
-            return self._create_sqlite_engine()
-        else:
-            return self._create_azure_engine()
-
-    def _create_sqlite_engine(self) -> Engine:
-        """Crée un engine SQLAlchemy pour SQLite local"""
-        db_path = os.path.join(os.path.dirname(__file__), "DATA", "windmanager.db")
-
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Base de données locale non trouvée: {db_path}")
-
-        connection_string = f"sqlite:///{db_path}"
-        engine = create_engine(
-            connection_string,
-            connect_args={"check_same_thread": False}
-        )
-        return engine
-
-    def _create_azure_engine(self) -> Engine:
-        """Crée un engine SQLAlchemy pour Azure SQL (Entra ID ou SQL authentication)"""
-        # Récupère les informations depuis l'environnement ou Streamlit secrets
-        if hasattr(st, 'secrets') and 'AZURE_SQL_SERVER' in st.secrets:
-            server = st.secrets['AZURE_SQL_SERVER']
-            database = st.secrets['AZURE_SQL_DATABASE']
-            use_entra_id = st.secrets.get('USE_ENTRA_ID', 'false').lower() == 'true'
-
-            if use_entra_id:
-                tenant_id = st.secrets['AZURE_TENANT_ID']
-                client_id = st.secrets['AZURE_CLIENT_ID']
-                client_secret = st.secrets['AZURE_CLIENT_SECRET']
-                username = None
-                password = None
-            else:
-                username = st.secrets['AZURE_SQL_USER']
-                password = st.secrets['AZURE_SQL_PASSWORD']
-                tenant_id = client_id = client_secret = None
-        else:
-            server = os.getenv('AZURE_SQL_SERVER')
-            database = os.getenv('AZURE_SQL_DATABASE')
-            use_entra_id = os.getenv('USE_ENTRA_ID', 'false').lower() == 'true'
-
-            if use_entra_id:
-                tenant_id = os.getenv('AZURE_TENANT_ID')
-                client_id = os.getenv('AZURE_CLIENT_ID')
-                client_secret = os.getenv('AZURE_CLIENT_SECRET')
-                username = None
-                password = None
-            else:
-                username = os.getenv('AZURE_SQL_USER')
-                password = os.getenv('AZURE_SQL_PASSWORD')
-                tenant_id = client_id = client_secret = None
-
-        if not all([server, database]):
-            raise ValueError("Configuration Azure SQL manquante (server, database)")
-
-        # Entra ID mode (preferred)
-        if use_entra_id:
-            if not all([tenant_id, client_id, client_secret]):
-                raise ValueError("Configuration Entra ID manquante (tenant_id, client_id, client_secret)")
-
-            # Type narrowing: at this point we know these values are not None
-            assert tenant_id is not None and client_id is not None and client_secret is not None
-
-            # Get Entra ID token with Service Principal
-            credential = ClientSecretCredential(
-                tenant_id=tenant_id,
-                client_id=client_id,
-                client_secret=client_secret
-            )
-            token_bytes = credential.get_token("https://database.windows.net/.default").token.encode("UTF-16-LE")
-            token_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)
-
-            # Connection string for Entra ID
-            # Note: server and database are guaranteed non-None by earlier check
-            odbc_driver = get_available_odbc_driver()
-            connection_url = URL.create(
-                "mssql+pyodbc",
-                query={
-                    "driver": odbc_driver,
-                    "server": str(server),
-                    "database": str(database),
-                    "encrypt": "yes",
-                    "TrustServerCertificate": "no",
-                    "Connection Timeout": "120",  # 2 minutes for cold start
-                }
-            )
-
-            engine = create_engine(
-                connection_url,
-                connect_args={
-                    "attrs_before": {
-                        1256: token_struct  # SQL_COPT_SS_ACCESS_TOKEN
-                    }
-                }
-            )
-            return engine
-
-        # SQL Authentication mode (temporary)
-        else:
-            if not all([username, password]):
-                raise ValueError("Configuration SQL Authentication manquante (username, password)")
-
-            # Type narrowing: at this point we know these values are not None
-            assert username is not None and password is not None
-
-            # Connection string for SQL auth
-            odbc_driver = get_available_odbc_driver()
-            connection_url = URL.create(
-                "mssql+pyodbc",
-                username=str(username),
-                password=str(password),
-                host=str(server),
-                database=str(database),
-                query={
-                    "driver": odbc_driver,
-                    "encrypt": "yes",
-                    "TrustServerCertificate": "no",
-                    "Connection Timeout": "120",  # 2 minutes for cold start
-                }
-            )
-
-            engine = create_engine(connection_url)
-            return engine
-
-
 @st.cache_resource
-def get_database_engine(use_local: bool = False) -> Engine:
+def init_supabase_connection() -> Client:
     """
-    Retourne un SQLAlchemy engine avec cache Streamlit
+    Initialise la connexion au client Supabase.
+    Utilise l'API REST Supabase au lieu de connexion PostgreSQL directe.
+    Cela évite les problèmes IPv4/IPv6 et est la méthode recommandée par Streamlit.
+    """
+    # Récupération des secrets
+    # Essayer d'abord st.secrets (Streamlit Cloud), puis les variables d'environnement (local)
+    try:
+        supabase_url = st.secrets.get('SUPABASE_URL')
+        supabase_key = st.secrets.get('SUPABASE_API_KEY')
+    except (FileNotFoundError, KeyError):
+        # En local, utiliser les variables d'environnement depuis .env
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_API_KEY')
+
+    if not supabase_url or not supabase_key:
+        raise ValueError("Configuration manquante: SUPABASE_URL et SUPABASE_API_KEY requis")
+
+    st.write(f"Connexion au client Supabase: {supabase_url}")
+
+    try:
+        client = create_client(supabase_url, supabase_key)
+        st.write("Client Supabase initialisé avec succès")
+        return client
+    except Exception as e:
+        st.error(f"Erreur lors de l'initialisation du client Supabase: {e}")
+        raise
+
+
+def execute_query(table: str, columns: str = "*", filters: dict = None):
+    """
+    Exécute une requête SELECT sur une table Supabase.
 
     Args:
-        use_local: True pour SQLite local, False pour Azure SQL avec Azure AD
+        table: Nom de la table
+        columns: Colonnes à sélectionner (défaut: "*")
+        filters: Dictionnaire de filtres (ex: {"status": "active"})
 
     Returns:
-        SQLAlchemy Engine
+        Liste de dictionnaires représentant les lignes
     """
-    db = DatabaseConnection(use_local=use_local)
-    return db.get_engine()
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).select(columns)
+
+        # Appliquer les filtres si fournis
+        if filters:
+            for key, value in filters.items():
+                query = query.eq(key, value)
+
+        response = query.execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la requête sur {table}: {e}")
+        return None
 
 
-def execute_query(query: str, params: Optional[dict] = None, use_local: bool = False, max_retries: int = 3):
-    """
-    Exécute une requête SQL et retourne les résultats avec retry pour cold start
+def insert_data(table: str, data: dict):
+    """Insert des données dans une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        response = client.table(table).insert(data).execute()
+        st.success(f"Données insérées dans {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de l'insertion dans {table}: {e}")
+        return None
 
-    Args:
-        query: Requête SQL à exécuter (utilisez :param pour les paramètres nommés)
-        params: Dictionnaire de paramètres pour la requête (optional)
-        use_local: True pour SQLite local, False pour Azure SQL
-        max_retries: Nombre de tentatives en cas de timeout (default: 3)
 
-    Returns:
-        Liste de dictionnaires pour SELECT, nombre de lignes affectées sinon
-    """
-    last_error = None
+def update_data(table: str, data: dict, filters: dict):
+    """Update des données dans une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).update(data)
 
-    for attempt in range(max_retries):
-        try:
-            engine = get_database_engine(use_local=use_local)
+        for key, value in filters.items():
+            query = query.eq(key, value)
 
-            with engine.connect() as conn:
-                result = conn.execute(text(query), params or {})
+        response = query.execute()
+        st.success(f"Données mises à jour dans {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la mise à jour dans {table}: {e}")
+        return None
 
-                # Pour les SELECT
-                if query.strip().upper().startswith('SELECT'):
-                    rows = result.fetchall()
-                    # Convertit en liste de dictionnaires
-                    return [dict(row._mapping) for row in rows]
-                else:
-                    # Pour les INSERT, UPDATE, DELETE
-                    conn.commit()
-                    return result.rowcount
 
-        except OperationalError as e:
-            last_error = e
-            # Retry uniquement pour les timeouts (cold start)
-            if "timeout" in str(e).lower() and attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 5  # 5s, 10s, 15s...
-                if hasattr(st, 'warning'):
-                    st.warning(f"⏳ Cold start détecté, nouvelle tentative dans {wait_time}s... (tentative {attempt + 2}/{max_retries})")
-                time.sleep(wait_time)
-                continue
-            else:
-                # Pas un timeout ou dernière tentative
-                break
-        except Exception as e:
-            last_error = e
-            break
+def delete_data(table: str, filters: dict):
+    """Supprime des données d'une table Supabase"""
+    try:
+        client = init_supabase_connection()
+        query = client.table(table).delete()
 
-    # Si on arrive ici, toutes les tentatives ont échoué
-    if hasattr(st, 'error'):
-        st.error(f"Erreur lors de l'exécution de la requête: {str(last_error)}")
-    return None
+        for key, value in filters.items():
+            query = query.eq(key, value)
+
+        response = query.execute()
+        st.success(f"Données supprimées de {table}")
+        return response.data
+    except Exception as e:
+        st.error(f"Erreur lors de la suppression dans {table}: {e}")
+        return None
