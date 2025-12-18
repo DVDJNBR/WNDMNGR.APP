@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import streamlit as st
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -26,18 +27,15 @@ def init_supabase_connection() -> Client:
     if not supabase_url or not supabase_key:
         raise ValueError("Configuration manquante: SUPABASE_URL et SUPABASE_API_KEY requis")
 
-    st.write(f"Connexion au client Supabase: {supabase_url}")
-
     try:
         client = create_client(supabase_url, supabase_key)
-        st.write("Client Supabase initialisé avec succès")
         return client
     except Exception as e:
         st.error(f"Erreur lors de l'initialisation du client Supabase: {e}")
         raise
 
 
-def execute_query(table: str, columns: str = "*", filters: dict = None):
+def execute_query(table: str, columns: str = "*", filters: Optional[dict] = None):
     """
     Exécute une requête SELECT sur une table Supabase.
 
