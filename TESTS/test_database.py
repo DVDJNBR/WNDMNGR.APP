@@ -1,0 +1,43 @@
+"""Tests de connexion et fonctions database"""
+import pytest
+from config import settings
+
+
+def test_config_loading():
+    """Vérifie que dynaconf charge bien la config"""
+    assert settings.environment in ['development', 'production']
+    assert settings.db_type in ['sqlite', 'supabase']
+    assert settings.app_name == "Windmanager"
+
+
+def test_sqlite_connection():
+    """Vérifie que SQLite se connecte et retourne des stats"""
+    if settings.db_type == "sqlite":
+        from database import execute_sqlite_rpc
+
+        result = execute_sqlite_rpc('get_table_stats')
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        # Vérifier la structure des données
+        first_table = result[0]
+        assert 'table_name' in first_table
+        assert 'column_count' in first_table
+        assert 'row_count' in first_table
+        assert isinstance(first_table['column_count'], int)
+        assert isinstance(first_table['row_count'], int)
+
+
+def test_supabase_imports():
+    """Vérifie que les imports Supabase fonctionnent"""
+    if settings.db_type == "supabase":
+        from database import init_supabase_connection, execute_supabase_rpc
+        # Si l'import passe, c'est bon
+
+
+def test_unified_rpc_interface():
+    """Vérifie que l'interface unifiée execute_rpc existe"""
+    from database import execute_rpc
+
+    # La fonction doit exister et être appelable
+    assert callable(execute_rpc)

@@ -16,6 +16,8 @@ dev = [
     "sqlalchemy>=2.0.0",
     "python-dotenv>=1.0.0",
     "python-semantic-release>=9.0.0",
+    "pytest>=8.0.0",
+    "ruff>=0.7.0",
 ]
 
 [build-system]
@@ -55,3 +57,16 @@ autoescape = true
 allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
 minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line too long (géré par line-length)
+
+[tool.pytest.ini_options]
+testpaths = ["TESTS"]
+python_files = "test_*.py"
+python_functions = "test_*"
