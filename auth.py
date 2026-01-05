@@ -247,9 +247,11 @@ def get_user_role_supabase(user_id: str) -> str:
         response = client.table('profiles').select('role').eq('id', user_id).execute()
 
         if response.data and len(response.data) > 0:
-            return response.data[0]['role']
-        else:
-            return 'user'
+            data = response.data[0]
+            if isinstance(data, dict):
+                return str(data.get('role', 'user'))
+        
+        return 'user'
 
     except Exception:
         return 'user'
