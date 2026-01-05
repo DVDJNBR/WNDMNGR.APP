@@ -1,194 +1,66 @@
-import streamlit as st
-import os
 import pandas as pd
-from database import get_database_engine, execute_query
+import streamlit as st
+
+from config import settings
+from database import execute_rpc
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Wind Manager - Database Stats",
-    page_icon="🌬️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Windmanager France - Database",
+    page_icon="",
+    layout="wide"
 )
 
-# Détecte l'environnement (local ou cloud)
-USE_LOCAL_DB = os.getenv("USE_LOCAL_DB", "true").lower() == "true"
+st.title("Windmanager - Database")
+st.caption(f"Environnement: {settings.environment} | Base de données: {settings.db_type}")
 
-# Titre principal
-st.title("🌬️ Wind Manager - Database Statistics")
-st.caption("Version 1.0 - Statistiques de la base de données")
-
-# Sidebar pour la configuration
-with st.sidebar:
-    st.header("Configuration")
-
-    # Affiche l'environnement actuel
-    if USE_LOCAL_DB:
-        st.info("🏠 **Mode:** Local (SQLite)")
-        st.caption("Base: DATA/windmanager.db")
-    else:
-        st.success("☁️ **Mode:** Cloud (Azure SQL)")
-        st.caption("Azure AD Authentication")
-
-    # Test de connexion
-    st.divider()
-    if st.button("🔌 Tester la connexion"):
-        with st.spinner("Connexion en cours..."):
-            try:
-                engine = get_database_engine(use_local=USE_LOCAL_DB)
-                with engine.connect() as conn:
-                    st.success("✅ Connexion réussie !")
-            except Exception as e:
-                st.error(f"❌ Erreur de connexion")
-                st.exception(e)
-
-# Liste de toutes les tables de la base
-TABLES = [
-    # Reference Tables
-    ("company_roles", "Rôles des entreprises", "📋"),
-    ("farm_types", "Types de fermes", "📋"),
-    ("person_roles", "Rôles des personnes", "📋"),
-
-    # Entity Tables
-    ("companies", "Entreprises", "🏢"),
-    ("employees", "Employés", "👷"),
-    ("farms", "Fermes", "🏭"),
-    ("ice_detection_systems", "Systèmes de détection de glace", "❄️"),
-    ("persons", "Personnes", "👤"),
-    ("substations", "Sous-stations", "🔌"),
-    ("wind_turbine_generators", "Éoliennes", "⚡"),
-
-    # Relationship Tables
-    ("farm_company_roles", "Relations Ferme-Entreprise", "🔗"),
-    ("farm_referents", "Référents de fermes", "📊"),
-
-    # Look-up Tables
-    ("farm_actual_performances", "Performances réelles", "📈"),
-    ("farm_administrations", "Administrations", "📋"),
-    ("farm_electrical_delegations", "Délégations électriques", "⚡"),
-    ("farm_environmental_installations", "Installations environnementales", "🌱"),
-    ("farm_financial_guarantees", "Garanties financières", "💰"),
-    ("farm_ice_detection_systems", "Systèmes IDS par ferme", "❄️"),
-    ("farm_locations", "Localisations", "📍"),
-    ("farm_om_contracts", "Contrats O&M", "📄"),
-    ("farm_statuses", "Statuts des fermes", "📊"),
-    ("farm_substation_details", "Détails sous-stations", "🔌"),
-    ("farm_target_performances", "Performances cibles", "🎯"),
-    ("farm_tariffs", "Tarifs", "💶"),
-    ("farm_tcma_contracts", "Contrats TCMA", "📄"),
-    ("farm_turbine_details", "Détails turbines", "⚡"),
-
-    # Metadata
-    ("ingestion_versions", "Versions d'ingestion", "📦"),
-]
-
-# Affichage des statistiques
-st.header("📊 Statistiques par table")
-st.markdown("Nombre de lignes dans chaque table de la base de données.")
-
-# Conteneur pour les résultats
+# Récupération des statistiques via RPC
 with st.spinner("Chargement des statistiques..."):
     try:
-        # Prépare les données pour le DataFrame
+        data = execute_rpc('get_table_stats')
+
+        # Transformer les données pour le DataFrame
         stats_data = []
+        for row in data:
+            stats_data.append({
+                "Table": row.get('table_name', 'N/A'),
+                "Colonnes": row.get('column_count', 'N/A'),
+                "Entrées": row.get('row_count', 'N/A')
+            })
 
-        for table_name, description, icon in TABLES:
-            try:
-                # Compte les lignes
-                query = f"SELECT COUNT(*) as count FROM {table_name}"
-                result = execute_query(query, use_local=USE_LOCAL_DB)
-
-                if result and isinstance(result, list) and len(result) > 0:
-                    count = result[0]['count']
-                    stats_data.append({
-                        "Icône": icon,
-                        "Table": table_name,
-                        "Description": description,
-                        "Nombre de lignes": count
-                    })
-                else:
-                    stats_data.append({
-                        "Icône": icon,
-                        "Table": table_name,
-                        "Description": description,
-                        "Nombre de lignes": "Erreur"
-                    })
-
-            except Exception as e:
-                stats_data.append({
-                    "Icône": icon,
-                    "Table": table_name,
-                    "Description": description,
-                    "Nombre de lignes": f"Erreur: {str(e)}"
-                })
-
-        # Affiche le DataFrame
         df = pd.DataFrame(stats_data)
 
-        # Affichage avec style
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Icône": st.column_config.TextColumn("", width="small"),
-                "Table": st.column_config.TextColumn("Table", width="medium"),
-                "Description": st.column_config.TextColumn("Description", width="large"),
-                "Nombre de lignes": st.column_config.NumberColumn(
-                    "Nombre de lignes",
-                    format="%d"
-                )
-            }
-        )
-
-        # Calcul du total
-        try:
-            total_rows = df[df["Nombre de lignes"].apply(lambda x: isinstance(x, int))]["Nombre de lignes"].sum()
-            st.metric("📊 Total de lignes", f"{total_rows:,}")
-        except:
-            pass
-
-        # Télécharger les stats en CSV
-        csv = df.to_csv(index=False)
-        st.download_button(
-            label="📥 Télécharger les statistiques (CSV)",
-            data=csv,
-            file_name="windmanager_stats.csv",
-            mime="text/csv"
-        )
+        # Trier par nombre d'entrées décroissant
+        df = df.sort_values(by='Entrées', ascending=False).reset_index(drop=True)
 
     except Exception as e:
-        st.error("❌ Impossible de charger les statistiques")
-        st.exception(e)
+        st.error(f"Erreur lors du chargement des statistiques: {e}")
+        df = pd.DataFrame(columns=["Table", "Colonnes", "Entrées"])
 
-# Informations complémentaires
-st.divider()
-st.subheader("ℹ️ Informations")
+st.dataframe(
+    df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Table": st.column_config.TextColumn("Table", width="large"),
+        "Colonnes": st.column_config.NumberColumn("Colonnes", format="%d"),
+        "Entrées": st.column_config.NumberColumn("Lignes", format="%d")
+    }
+)
 
-col1, col2 = st.columns(2)
+# Statistiques globales
+if not df.empty:
+    try:
+        total_entries = df["Entrées"].sum()
+        populated_tables = len(df[df["Entrées"] > 0])
+        total_tables = len(df)
 
-with col1:
-    st.markdown("""
-    ### À propos
-    Cette application affiche les statistiques de la base de données Wind Manager.
-
-    **Fonctionnalités:**
-    - Vue d'ensemble du nombre de lignes par table
-    - Support SQLite (local) et Azure SQL (cloud)
-    - Authentification Azure AD pour le cloud
-    """)
-
-with col2:
-    st.markdown("""
-    ### Prochaines étapes
-    1. ✅ Connexion Azure AD configurée
-    2. ✅ Statistiques de base affichées
-    3. ⏳ CI/CD à mettre en place
-    4. ⏳ Formulaires CRUD à développer
-
-    **Version:** 1.0
-    """)
-
-# Footer
-st.divider()
-st.caption("Wind Manager Database Manager v1.0 - Développé avec Streamlit 🚀")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total entrées", f"{total_entries:,}")
+        with col2:
+            st.metric("Tables avec données", f"{populated_tables}/{total_tables}")
+        with col3:
+            st.metric("Tables vides", f"{total_tables - populated_tables}")
+    except Exception:
+        pass

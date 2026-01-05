@@ -1,193 +1,139 @@
+"""Database connection module supporting both SQLite (local) and Supabase (production)"""
+
 import os
-import struct
-from typing import Optional
-from dotenv import load_dotenv
+from typing import Any, Optional
+
 import streamlit as st
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import URL, Engine
-from azure.identity import ClientSecretCredential
-import pyodbc
-from urllib.parse import quote_plus
 
-load_dotenv()
+from config import settings
+
+# Import conditionnel selon l'environnement
+if settings.db_type == "sqlite":
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import Engine
+elif settings.db_type == "supabase":
+    from supabase import Client, create_client
 
 
-class DatabaseConnection:
-    """Gère la connexion à la base de données (Azure SQL avec Entra ID ou SQL auth, ou SQLite local)"""
-
-    def __init__(self, use_local: bool = False):
-        self.use_local = use_local
-        self.engine: Optional[Engine] = None
-
-    def get_engine(self) -> Engine:
-        """Retourne le SQLAlchemy engine approprié selon l'environnement"""
-        if self.use_local:
-            return self._create_sqlite_engine()
-        else:
-            return self._create_azure_engine()
-
-    def _create_sqlite_engine(self) -> Engine:
-        """Crée un engine SQLAlchemy pour SQLite local"""
-        db_path = os.path.join(os.path.dirname(__file__), "DATA", "windmanager.db")
-
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Base de données locale non trouvée: {db_path}")
-
-        connection_string = f"sqlite:///{db_path}"
-        engine = create_engine(
-            connection_string,
-            connect_args={"check_same_thread": False}
-        )
-        return engine
-
-    def _create_azure_engine(self) -> Engine:
-        """Crée un engine SQLAlchemy pour Azure SQL (Entra ID ou SQL authentication)"""
-        # Récupère les informations depuis l'environnement ou Streamlit secrets
-        if hasattr(st, 'secrets') and 'AZURE_SQL_SERVER' in st.secrets:
-            server = st.secrets['AZURE_SQL_SERVER']
-            database = st.secrets['AZURE_SQL_DATABASE']
-            use_entra_id = st.secrets.get('USE_ENTRA_ID', 'false').lower() == 'true'
-
-            if use_entra_id:
-                tenant_id = st.secrets['AZURE_TENANT_ID']
-                client_id = st.secrets['AZURE_CLIENT_ID']
-                client_secret = st.secrets['AZURE_CLIENT_SECRET']
-                username = None
-                password = None
-            else:
-                username = st.secrets['AZURE_SQL_USER']
-                password = st.secrets['AZURE_SQL_PASSWORD']
-                tenant_id = client_id = client_secret = None
-        else:
-            server = os.getenv('AZURE_SQL_SERVER')
-            database = os.getenv('AZURE_SQL_DATABASE')
-            use_entra_id = os.getenv('USE_ENTRA_ID', 'false').lower() == 'true'
-
-            if use_entra_id:
-                tenant_id = os.getenv('AZURE_TENANT_ID')
-                client_id = os.getenv('AZURE_CLIENT_ID')
-                client_secret = os.getenv('AZURE_CLIENT_SECRET')
-                username = None
-                password = None
-            else:
-                username = os.getenv('AZURE_SQL_USER')
-                password = os.getenv('AZURE_SQL_PASSWORD')
-                tenant_id = client_id = client_secret = None
-
-        if not all([server, database]):
-            raise ValueError("Configuration Azure SQL manquante (server, database)")
-
-        # Entra ID mode (preferred)
-        if use_entra_id:
-            if not all([tenant_id, client_id, client_secret]):
-                raise ValueError("Configuration Entra ID manquante (tenant_id, client_id, client_secret)")
-
-            # Type narrowing: at this point we know these values are not None
-            assert tenant_id is not None and client_id is not None and client_secret is not None
-
-            # Get Entra ID token with Service Principal
-            credential = ClientSecretCredential(
-                tenant_id=tenant_id,
-                client_id=client_id,
-                client_secret=client_secret
-            )
-            token_bytes = credential.get_token("https://database.windows.net/.default").token.encode("UTF-16-LE")
-            token_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)
-
-            # Connection string for Entra ID
-            # Note: server and database are guaranteed non-None by earlier check
-            connection_url = URL.create(
-                "mssql+pyodbc",
-                query={
-                    "driver": "ODBC Driver 18 for SQL Server",
-                    "server": str(server),
-                    "database": str(database),
-                    "encrypt": "yes",
-                    "TrustServerCertificate": "no",
-                    "Connection Timeout": "30",
-                }
-            )
-
-            engine = create_engine(
-                connection_url,
-                connect_args={
-                    "attrs_before": {
-                        1256: token_struct  # SQL_COPT_SS_ACCESS_TOKEN
-                    }
-                }
-            )
-            return engine
-
-        # SQL Authentication mode (temporary)
-        else:
-            if not all([username, password]):
-                raise ValueError("Configuration SQL Authentication manquante (username, password)")
-
-            # Type narrowing: at this point we know these values are not None
-            assert username is not None and password is not None
-
-            # Connection string for SQL auth
-            connection_url = URL.create(
-                "mssql+pyodbc",
-                username=str(username),
-                password=str(password),
-                host=str(server),
-                database=str(database),
-                query={
-                    "driver": "ODBC Driver 18 for SQL Server",
-                    "encrypt": "yes",
-                    "TrustServerCertificate": "no",
-                    "Connection Timeout": "30",
-                }
-            )
-
-            engine = create_engine(connection_url)
-            return engine
-
+# ==================== SQLite Functions ====================
 
 @st.cache_resource
-def get_database_engine(use_local: bool = False) -> Engine:
+def get_sqlite_engine() -> "Engine":
+    """Crée un engine SQLAlchemy pour SQLite local"""
+    db_path = os.path.join(os.path.dirname(__file__), settings.db_path)
+
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Base de données locale non trouvée: {db_path}")
+
+    connection_string = f"sqlite:///{db_path}"
+    engine = create_engine(
+        connection_string,
+        connect_args={"check_same_thread": False}
+    )
+    return engine
+
+
+def execute_sqlite_rpc(function_name: str) -> list[dict]:
     """
-    Retourne un SQLAlchemy engine avec cache Streamlit
-
-    Args:
-        use_local: True pour SQLite local, False pour Azure SQL avec Azure AD
-
-    Returns:
-        SQLAlchemy Engine
+    Simule un appel RPC pour SQLite en exécutant des requêtes SQL natives
     """
-    db = DatabaseConnection(use_local=use_local)
-    return db.get_engine()
-
-
-def execute_query(query: str, params: Optional[dict] = None, use_local: bool = False):
-    """
-    Exécute une requête SQL et retourne les résultats
-
-    Args:
-        query: Requête SQL à exécuter (utilisez :param pour les paramètres nommés)
-        params: Dictionnaire de paramètres pour la requête (optional)
-        use_local: True pour SQLite local, False pour Azure SQL
-
-    Returns:
-        Liste de dictionnaires pour SELECT, nombre de lignes affectées sinon
-    """
-    try:
-        engine = get_database_engine(use_local=use_local)
+    if function_name == "get_table_stats":
+        engine = get_sqlite_engine()
 
         with engine.connect() as conn:
-            result = conn.execute(text(query), params or {})
+            # Requête pour obtenir les stats des tables
+            query = text("""
+                SELECT
+                    m.name as table_name,
+                    COUNT(p.name) as column_count,
+                    0 as row_count
+                FROM sqlite_master m
+                LEFT JOIN pragma_table_info(m.name) p ON 1=1
+                WHERE m.type = 'table'
+                    AND m.name NOT LIKE 'sqlite_%'
+                GROUP BY m.name
+                ORDER BY m.name
+            """)
 
-            # Pour les SELECT
-            if query.strip().upper().startswith('SELECT'):
-                rows = result.fetchall()
-                # Convertit en liste de dictionnaires
-                return [dict(row._mapping) for row in rows]
-            else:
-                # Pour les INSERT, UPDATE, DELETE
-                conn.commit()
-                return result.rowcount
+            result = conn.execute(query)
+            tables_info = [dict(row._mapping) for row in result]
 
+            # Pour chaque table, compter les lignes
+            for table_info in tables_info:
+                table_name = table_info['table_name']
+                count_query = text(f"SELECT COUNT(*) as cnt FROM {table_name}")
+                count_result = conn.execute(count_query)
+                table_info['row_count'] = count_result.scalar()
+
+            return tables_info
+    else:
+        raise NotImplementedError(f"RPC function '{function_name}' not implemented for SQLite")
+
+
+# ==================== Supabase Functions ====================
+
+@st.cache_resource
+def init_supabase_connection() -> "Client":
+    """Initialise la connexion au client Supabase"""
+    # Récupération des secrets
+    try:
+        supabase_url = st.secrets.get('SUPABASE_URL')
+        supabase_key = st.secrets.get('SUPABASE_API_KEY')
+    except (FileNotFoundError, KeyError):
+        # Fallback sur .secrets.toml via dynaconf
+        supabase_url = settings.get('supabase_url')
+        supabase_key = settings.get('supabase_api_key')
+
+    if not supabase_url or not supabase_key:
+        raise ValueError("Configuration manquante: SUPABASE_URL et SUPABASE_API_KEY requis")
+
+    try:
+        client = create_client(supabase_url, supabase_key)
+        return client
     except Exception as e:
-        st.error(f"Erreur lors de l'exécution de la requête: {str(e)}")
-        return None
+        st.error(f"Erreur lors de l'initialisation du client Supabase: {e}")
+        raise
+
+
+def execute_supabase_rpc(function_name: str) -> Any:
+    """Exécute une fonction RPC Supabase"""
+    client = init_supabase_connection()
+    response = client.rpc(function_name).execute()
+    return response.data
+
+
+# ==================== Unified Interface ====================
+
+def execute_rpc(function_name: str) -> Any:
+    """
+    Interface unifiée pour exécuter des fonctions RPC
+    Route automatiquement vers SQLite ou Supabase selon la configuration
+    """
+    if settings.db_type == "sqlite":
+        return execute_sqlite_rpc(function_name)
+    elif settings.db_type == "supabase":
+        return execute_supabase_rpc(function_name)
+    else:
+        raise ValueError(f"Type de base de données non supporté: {settings.db_type}")
+
+
+def execute_query(table: str, columns: str = "*", filters: Optional[dict] = None) -> Any:
+    """
+    Exécute une requête SELECT sur une table (Supabase uniquement pour l'instant)
+    """
+    if settings.db_type == "supabase":
+        try:
+            client = init_supabase_connection()
+            query = client.table(table).select(columns)
+
+            if filters:
+                for key, value in filters.items():
+                    query = query.eq(key, value)
+
+            response = query.execute()
+            return response.data
+        except Exception as e:
+            st.error(f"Erreur lors de la requête sur {table}: {e}")
+            return None
+    else:
+        raise NotImplementedError("execute_query not implemented for SQLite")
