@@ -212,3 +212,7 @@ __marimo__/
 RESOURCES/
 DATA/
 install.py
+
+
+
+*.ipynb
