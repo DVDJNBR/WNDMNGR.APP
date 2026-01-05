@@ -23,7 +23,7 @@ def get_sqlite_engine() -> "Engine":
     db_path = os.path.join(os.path.dirname(__file__), settings.db_path)
 
     if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Base de données locale non trouvée: {db_path}")
+        raise FileNotFoundError(f"Local database not found: {db_path}")
 
     connection_string = f"sqlite:///{db_path}"
     engine = create_engine(
@@ -85,13 +85,13 @@ def init_supabase_connection() -> "Client":
         supabase_key = settings.get('supabase_api_key')
 
     if not supabase_url or not supabase_key:
-        raise ValueError("Configuration manquante: SUPABASE_URL et SUPABASE_API_KEY requis")
+        raise ValueError("Missing configuration: SUPABASE_URL and SUPABASE_API_KEY required")
 
     try:
         client = create_client(supabase_url, supabase_key)
         return client
     except Exception as e:
-        st.error(f"Erreur lors de l'initialisation du client Supabase: {e}")
+        st.error(f"Error initializing Supabase client: {e}")
         raise
 
 
@@ -133,7 +133,7 @@ def execute_query(table: str, columns: str = "*", filters: Optional[dict] = None
             response = query.execute()
             return response.data
         except Exception as e:
-            st.error(f"Erreur lors de la requête sur {table}: {e}")
+            st.error(f"Error querying table {table}: {e}")
             return None
     else:
         raise NotImplementedError("execute_query not implemented for SQLite")
