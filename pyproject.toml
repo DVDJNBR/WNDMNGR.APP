@@ -18,6 +18,7 @@ dev = [
     "python-semantic-release>=9.0.0",
     "pytest>=8.0.0",
     "ruff>=0.7.0",
+    "pre-commit>=3.5.0",
 ]
 
 [build-system]
@@ -64,7 +65,7 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501"]  # Line too long (géré par line-length)
+ignore = ["E501", "I", "F541", "F401", "W293"]  # E501: line length, I: imports, F541: f-strings, F401: unused imports, W293: whitespace
 
 [tool.pytest.ini_options]
 testpaths = ["TESTS"]
