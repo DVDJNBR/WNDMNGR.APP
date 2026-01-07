@@ -1,12 +1,11 @@
 """Tests for authentication module"""
 
-import pytest
 from config import settings
 
 
 def test_email_validation():
     """Test email domain validation"""
-    from auth import validate_email_domain, ALLOWED_EMAIL_DOMAIN
+    from auth import ALLOWED_EMAIL_DOMAIN, validate_email_domain
 
     # Valid emails
     is_valid, _ = validate_email_domain(f"test@{ALLOWED_EMAIL_DOMAIN}")
@@ -26,7 +25,7 @@ def test_email_validation():
     # Invalid format
     is_valid, msg = validate_email_domain("not-an-email")
     assert is_valid is False
-    assert "invalide" in msg.lower()
+    assert "invalid" in msg.lower()
 
     is_valid, msg = validate_email_domain("missing-at-sign.com")
     assert is_valid is False
@@ -37,8 +36,9 @@ def test_email_validation():
 
 def test_role_hierarchy():
     """Test role checking logic"""
-    from auth import check_role
     import streamlit as st
+
+    from auth import check_role
 
     # Mock session state for admin
     st.session_state['user_role'] = 'admin'
@@ -61,8 +61,9 @@ def test_role_hierarchy():
 
 def test_session_initialization():
     """Test session state initialization"""
-    from auth import init_session_state, clear_session_state, SESSION_KEYS
     import streamlit as st
+
+    from auth import SESSION_KEYS, clear_session_state, init_session_state
 
     # Clear any existing state
     for key in SESSION_KEYS.keys():
@@ -91,7 +92,7 @@ def test_session_initialization():
 def test_sqlite_mode_detection():
     """Test that auth module correctly detects SQLite mode"""
     if settings.db_type == "sqlite":
-        from auth import login_user_sqlite, get_user_role_sqlite
+        from auth import get_user_role_sqlite, login_user_sqlite
 
         # These functions should exist in SQLite mode
         assert callable(login_user_sqlite)
