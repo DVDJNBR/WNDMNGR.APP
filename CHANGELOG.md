@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.2.5 (2026-01-13)
+
+### Bug Fixes
+
+- Replace list[dict] with List[dict] for Python 3.8 compatibility
+  ([`be59d1c`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/be59d1ce481b92053f814f430aeebb352ab4b148))
+
+### Chores
+
+- Gitignore updated for merging main automation
+  ([`dbde52a`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/dbde52a55b3524eee0cc718c359eadb9dc7e14cd))
+
+- Pulling files
+  ([`adfc505`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/adfc50501df75bd406af95452f26ea46728692cb))
+
+
 ## v1.2.4 (2026-01-07)
 
 
