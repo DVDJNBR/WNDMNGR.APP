@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.4 (2026-01-28)
+
+### Bug Fixes
+
+- Match Supabase env var names (SUPABASE_KEY)
+  ([`2afffef`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/2afffeff3ae706724eaa9e2d557a9fe9ca88557e))
+
+
 ## v1.4.3 (2026-01-28)
 
 ### Bug Fixes
