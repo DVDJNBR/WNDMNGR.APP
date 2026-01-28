@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-01-28)
+
+### Bug Fixes
+
+- Add gunicorn and update main.py for Render Python runtime
+  ([`f67436e`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/f67436eb9f5efd72a54625eab971448575348681))
+
+### Chores
+
+- Add README to trigger Render build
+  ([`9f1b92b`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/9f1b92b4249dce3c0dfb26613f9231e7f67db0eb))
+
+
 ## v1.4.0 (2026-01-28)
 
 ### Features
