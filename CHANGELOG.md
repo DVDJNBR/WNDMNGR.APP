@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.1 (2026-01-28)
+
+### Bug Fixes
+
+- Change tab title to Windmanager Database
+  ([`bfeed5e`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/bfeed5e1b0b083a33d836ca7baf1b8782ebe48e0))
+
+
 ## v1.5.0 (2026-01-28)
 
 ### Features
