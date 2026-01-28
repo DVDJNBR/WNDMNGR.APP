@@ -17,11 +17,11 @@ def init_supabase_connection() -> Client:
         return _client
 
     # Use Dynaconf settings directly
-    supabase_url = settings.get('supabase_url')
-    supabase_key = settings.get('supabase_api_key')
+    supabase_url = settings.get('SUPABASE_URL')
+    supabase_key = settings.get('SUPABASE_KEY') or settings.get('SUPABASE_API_KEY')
 
     if not supabase_url or not supabase_key:
-        raise ValueError("Missing configuration: SUPABASE_URL and SUPABASE_API_KEY required")
+        raise ValueError(f"Missing configuration: SUPABASE_URL={supabase_url}, SUPABASE_KEY={supabase_key}")
 
     try:
         _client = create_client(supabase_url, supabase_key)
