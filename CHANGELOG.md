@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-01-28)
+
+### Bug Fixes
+
+- Use Python 3.11 for pandas compatibility
+  ([`b3753e6`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/b3753e6ec8e140bc6629858f27df352c007534b0))
+
+
 ## v1.4.1 (2026-01-28)
 
 ### Bug Fixes
