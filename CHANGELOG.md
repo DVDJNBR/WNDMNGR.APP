@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-01-28)
+
+### Features
+
+- Add Render deployment configuration
+  ([`a16d61b`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/a16d61b1ac70fd3499df0492b664a0fc4b8ca2cc))
+
+
 ## v1.3.0 (2026-01-13)
 
 ### Features
