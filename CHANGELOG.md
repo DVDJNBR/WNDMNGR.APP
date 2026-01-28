@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.3 (2026-01-28)
+
+### Bug Fixes
+
+- Add missing src/data module
+  ([`3acfdcd`](https://github.com/DVDJNBR/WNDMNGR.APP/commit/3acfdcdf65d68aa7a3e0535f75e3ec450e0389c2))
+
+
 ## v1.4.2 (2026-01-28)
 
 ### Bug Fixes
