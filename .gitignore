@@ -220,3 +220,10 @@ merge_to_main.py
 
 # claude
 tmpclaude-*
+
+# Node.js / Backend
+node_modules/
+backend/node_modules/
+backend/dist/
+*.tsbuildinfo
+.wrangler/
