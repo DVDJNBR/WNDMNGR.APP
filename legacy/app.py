@@ -4,7 +4,9 @@ Taipy version (migrated from Streamlit)
 """
 
 import uuid as uuid_lib
-from taipy.gui import Gui, State, notify
+from taipy.gui import Gui
+from taipy.gui.state import State
+from taipy.gui.gui_actions import notify
 from config import settings
 from src.auth.manager import auth_manager
 from src.database import (

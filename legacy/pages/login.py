@@ -1,4 +1,5 @@
-from taipy.gui import Gui, State, Markdown
+from taipy.gui import Gui
+from taipy.gui.state import State
 from src.auth.manager import auth_manager
 
 def login_scenario(state: State):
@@ -49,7 +50,7 @@ def on_init(state: State):
         state.user_email = ""
         state.user_role = ""
 
-login_page = Markdown("""
+login_page = """
 <|{on_init}|on_init|>
 
 <|part|render={not authenticated}|
@@ -76,4 +77,4 @@ Your role is: <|{user_role}|text>
 
 <|Logout|button|on_action={logout_scenario}|>
 |>
-""")
+"""

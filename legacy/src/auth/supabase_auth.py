@@ -95,7 +95,7 @@ class SupabaseProvider(AuthProvider):
         try:
             response = client.auth.refresh_session(refresh_token)
 
-            if response.session:
+            if response.session and response.user:
                 user_id = response.user.id
                 role = self.get_user_role(user_id) # Re-fetch role
                 return {
