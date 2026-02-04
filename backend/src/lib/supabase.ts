@@ -1,18 +1,18 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { DatabaseEnv, getDatabaseConfig } from '../config/database'
 
-// Database types - will be extended as we add more tables
-export interface Database {
-  public: {
-    Tables: {
-      [key: string]: {
-        Row: Record<string, unknown>
-        Insert: Record<string, unknown>
-        Update: Record<string, unknown>
-      }
-    }
-  }
+// Farm table types
+export interface Farm {
+  uuid: string
+  spv: string
+  project: string
+  code: string
+  farm_type_id: number
 }
+
+// Simplified Database type - using 'any' for flexibility with Supabase
+// Full type generation can be done with `supabase gen types typescript`
+export type Database = any
 
 /**
  * Create a Supabase client for the current request

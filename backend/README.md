@@ -56,6 +56,13 @@ Le serveur sera accessible sur `http://localhost:8787`
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
 | GET | `/me` | Retourne les infos de l'utilisateur authentifié |
+| GET | `/farms` | Liste toutes les fermes |
+| GET | `/farms/stats` | Statistiques globales (B2: C9, C10) |
+| GET | `/farms/:uuid` | Détails d'une ferme avec données liées |
+| GET | `/farms/:uuid/summary` | Résumé agrégé d'une ferme (B2: C8, C10) |
+| POST | `/farms` | Créer une nouvelle ferme |
+| PUT | `/farms/:uuid` | Mettre à jour une ferme |
+| DELETE | `/farms/:uuid` | Supprimer une ferme |
 
 ### Database
 

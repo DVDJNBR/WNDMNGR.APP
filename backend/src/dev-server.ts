@@ -6,6 +6,7 @@ import { Env } from './config/auth'
 import { authMiddleware, User } from './middleware/auth'
 import authRoutes from './routes/auth'
 import dbRoutes from './routes/db'
+import farmsRoutes from './routes/farms'
 
 // Load environment variables from .dev.vars
 config({ path: '.dev.vars' })
@@ -77,6 +78,9 @@ protectedRoutes.get('/me', (c) => {
     name: user.name
   })
 })
+
+// Farms CRUD routes (protected)
+protectedRoutes.route('/farms', farmsRoutes)
 
 app.route('/', protectedRoutes)
 
