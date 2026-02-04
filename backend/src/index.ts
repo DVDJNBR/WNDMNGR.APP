@@ -1,10 +1,12 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { swaggerUI } from '@hono/swagger-ui'
 import { Env } from './config/auth'
 import { authMiddleware, User } from './middleware/auth'
 import authRoutes from './routes/auth'
 import dbRoutes from './routes/db'
 import farmsRoutes from './routes/farms'
+import { openAPISpec } from './openapi'
 
 // Define app with environment bindings and variables
 const app = new Hono<{
@@ -31,6 +33,10 @@ app.get('/health', (c) => {
     timestamp: new Date().toISOString()
   })
 })
+
+// OpenAPI documentation (public)
+app.get('/openapi.json', (c) => c.json(openAPISpec))
+app.get('/docs', swaggerUI({ url: '/openapi.json' }))
 
 // Auth routes (public)
 app.route('/auth', authRoutes)
