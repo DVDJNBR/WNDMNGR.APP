@@ -212,7 +212,19 @@ __marimo__/
 RESOURCES/
 DATA/
 install.py
+merge_to_main.py
 
 
 
 *.ipynb
+
+# claude
+tmpclaude-*
+
+# Node.js / Backend
+node_modules/
+backend/node_modules/
+backend/dist/
+*.tsbuildinfo
+.wrangler/
+.dev.vars
