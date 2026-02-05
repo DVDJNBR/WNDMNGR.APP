@@ -372,19 +372,35 @@ farms.delete('/:uuid', async (c) => {
       return c.json({ error: 'Farm not found' }, 404)
     }
 
+    // Cascading Delete: Delete related records in order of dependency
+    // Note: In a production environment with many tables, ON DELETE CASCADE at the DB level is preferred.
+    // For this implementation, we explicitly handle the main related tables.
+    
+    const relatedTables = [
+      'farm_locations',
+      'farm_statuses',
+      'farm_turbine_details',
+      'farm_administrations',
+      'farm_actual_performances',
+      'substations',
+      'wind_turbine_generators'
+    ]
+
+    for (const table of relatedTables) {
+      const foreignKey = table === 'substations' || table === 'wind_turbine_generators' || table === 'farm_actual_performances' 
+        ? 'farm_uuid' 
+        : 'uuid';
+      
+      await supabase.from(table).delete().eq(foreignKey, uuid);
+    }
+
+    // Finally delete the farm
     const { error } = await supabase
       .from('farms')
       .delete()
       .eq('uuid', uuid)
 
     if (error) {
-      // Check for foreign key constraint violation
-      if (error.code === '23503') {
-        return c.json({
-          error: 'Cannot delete farm with related data',
-          hint: 'Delete related records first (substations, referents, etc.)'
-        }, 409)
-      }
       return c.json({ error: 'Failed to delete farm', details: error.message }, 500)
     }
 

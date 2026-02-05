@@ -8,7 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from 'next/link';
-import { ArrowLeft, Wind, MapPin, Settings, Info, Zap } from 'lucide-react';
+import { ArrowLeft, Wind, MapPin, Settings, Info, Zap, AlertTriangle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 interface FarmDetail {
   farm: {
@@ -41,11 +50,17 @@ interface FarmDetail {
 }
 
 export default function FarmDetailPage({ params }: { params: { uuid: string } }) {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<FarmDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Delete State
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [confirmCode, setConfirmCode] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -64,6 +79,21 @@ export default function FarmDetailPage({ params }: { params: { uuid: string } })
 
     fetchDetail();
   }, [user, authLoading, params.uuid]);
+
+  const handleDelete = async () => {
+    if (confirmCode !== data?.farm.code) return;
+
+    setIsDeleting(true);
+    const { error } = await api.delete(`/farms/${params.uuid}`);
+
+    if (!error) {
+      router.push('/farms?deleted=true');
+    } else {
+      setError(error);
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -110,9 +140,42 @@ export default function FarmDetailPage({ params }: { params: { uuid: string } })
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Edit Farm</Button>
-          <Button variant="destructive">Delete</Button>
+          <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>Delete</Button>
         </div>
       </div>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent onOpenChange={setShowDeleteDialog}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm Cascading Delete
+            </DialogTitle>
+            <DialogDescription>
+              This action will permanently delete the farm **{farm.project}** and ALL associated data (locations, technical details, turbines, etc.). This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm font-medium">Please type the farm code <span className="font-mono bg-muted px-1 rounded">{farm.code}</span> to confirm:</p>
+            <Input 
+              value={confirmCode} 
+              onChange={(e) => setConfirmCode(e.target.value)}
+              placeholder="Type farm code here"
+              className="font-mono"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete} 
+              disabled={isDeleting || confirmCode !== farm.code}
+            >
+              {isDeleting ? 'Deleting...' : 'Confirm Deletion'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card>
