@@ -94,6 +94,55 @@ $$ LANGUAGE sql SECURITY DEFINER;`,
   }
 })
 
+// GET /db/schema - List tables with columns
+db.get('/schema', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env)
+
+    // Query information_schema directly via RPC if available, 
+    // or provide a helper SQL query
+    const { data, error } = await supabase.rpc('get_schema_details')
+
+    if (error) {
+      return c.json({
+        message: 'To see schema details, create this SQL function in Supabase:',
+        sql: `
+CREATE OR REPLACE FUNCTION get_schema_details()
+RETURNS JSON AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_agg(t) INTO result
+    FROM (
+        SELECT 
+            table_name,
+            (
+                SELECT json_agg(c)
+                FROM (
+                    SELECT column_name, data_type, is_nullable
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = tabs.table_name
+                    ORDER BY ordinal_position
+                ) c
+            ) AS columns
+        FROM information_schema.tables tabs
+        WHERE table_schema = 'public'
+        ORDER BY table_name
+    ) t;
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;`,
+        error: error.message
+      }, 200)
+    }
+
+    return c.json(data)
+
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Unknown error' }, 500)
+  }
+})
+
 // GET /db/query-test - Execute a simple test query
 db.get('/query-test', async (c) => {
   const result = await dbOperation(async () => {

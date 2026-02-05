@@ -41,11 +41,14 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">
                 You are successfully authenticated.
               </p>
-              <div className="flex gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 <Button variant="outline" className="flex-1" asChild>
                   <Link href="/farms">View Farms</Link>
                 </Button>
-                <Button variant="destructive" onClick={logout}>Sign Out</Button>
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link href="/docs">Documentation</Link>
+                </Button>
+                <Button variant="destructive" className="w-full" onClick={logout}>Sign Out</Button>
               </div>
             </>
           ) : (
