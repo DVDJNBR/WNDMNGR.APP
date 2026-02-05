@@ -27,13 +27,8 @@ auth.get('/login', (c) => {
 
   const authUrl = `${endpoints.authorize}?${params.toString()}`
 
-  // Return the URL for the client to redirect to
-  // In a real app, you might set a cookie with the state and redirect directly
-  return c.json({
-    authUrl,
-    state,
-    message: 'Redirect to authUrl to authenticate'
-  })
+  // Redirect to Azure login page
+  return c.redirect(authUrl)
 })
 
 // GET /auth/callback - Handle OAuth callback
@@ -92,17 +87,14 @@ auth.get('/callback', async (c) => {
       refresh_token?: string
     }
 
-    // Return tokens to the client
-    // In a production app, you would:
-    // - Set tokens in httpOnly cookies
-    // - Or return and let frontend store securely
-    return c.json({
-      message: 'Authentication successful',
-      access_token: tokens.access_token,
-      id_token: tokens.id_token,
-      token_type: tokens.token_type,
-      expires_in: tokens.expires_in
-    })
+    // Redirect back to frontend with tokens
+    // In production, use secure cookies or a safer transfer mechanism
+    const frontendUrl = c.env.FRONTEND_URL || 'http://localhost:3000'
+    const redirectUrl = new URL(`${frontendUrl}/auth/callback`)
+    redirectUrl.searchParams.set('access_token', tokens.access_token)
+    redirectUrl.searchParams.set('id_token', tokens.id_token)
+    
+    return c.redirect(redirectUrl.toString())
 
   } catch (err) {
     console.error('Token exchange error:', err)

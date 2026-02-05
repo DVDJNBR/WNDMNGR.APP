@@ -9,6 +9,7 @@ local_protocol = "http"
 # Environment variables (non-secrets)
 [vars]
 REDIRECT_URI = "http://localhost:8787/auth/callback"
+FRONTEND_URL = "http://localhost:3000"
 
 # Secrets (set via `wrangler secret put` or .dev.vars for local dev)
 # Azure Entra ID
