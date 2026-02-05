@@ -79,7 +79,9 @@ export default function FarmsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Farms</h1>
           <p className="text-muted-foreground">Manage your wind farm assets.</p>
         </div>
-        <Button>Add Farm</Button>
+        <Button asChild>
+          <Link href="/farms/new">Add Farm</Link>
+        </Button>
       </div>
 
       <Card>
