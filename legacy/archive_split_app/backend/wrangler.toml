@@ -11,6 +11,9 @@ local_protocol = "http"
 REDIRECT_URI = "http://localhost:8787/auth/callback"
 FRONTEND_URL = "http://localhost:3000"
 
+[env.production]
+vars = { REDIRECT_URI = "https://wndmngr-api.wpd.workers.dev/auth/callback", FRONTEND_URL = "https://wndmngr.app" }
+
 # Secrets (set via `wrangler secret put` or .dev.vars for local dev)
 # Azure Entra ID
 # AZURE_TENANT_ID

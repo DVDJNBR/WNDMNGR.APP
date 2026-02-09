@@ -1,30 +1,27 @@
-# Technology Stack
+# Technology Stack (Unified SvelteKit)
 
-## Core Frameworks
-*   **Language**: Python 3.10+
-*   **Frontend**: Taipy (latest stable)
-*   **Backend Logic**: Python (Standard Lib + Custom Modules)
-*   **Configuration**: Dynaconf (Environment management)
+## Core Framework
+*   **Framework**: SvelteKit 2.x
+*   **Language**: TypeScript 5.x
+*   **Styling**: Tailwind CSS
+*   **Runtime**: Cloudflare Pages (Workers runtime)
 
-## Authentication
-*   **Production**: Microsoft Entra ID (via `msal` library)
-*   **Legacy/Fallback**: Supabase Auth (via `supabase` library)
-*   **Local/Dev**: SQLite-based Mock Authentication
+## Authentication & Security
+*   **Identity Provider**: Microsoft Entra ID (via Azure App Registration)
+*   **Access Control**: Cloudflare Access (Zero Trust)
+*   **Application Auth**: SvelteKit Hook checking for Cloudflare JWT/Headers
 
 ## Database & Data
-*   **Production**: Supabase (PostgreSQL)
-*   **Development**: SQLite (`DATA/windmanager.db`)
-*   **ORM/Access**: Custom Facade Pattern (wrapping `supabase-py` and `sqlalchemy`)
+*   **Database**: Supabase (PostgreSQL)
+*   **Client**: `@supabase/supabase-js` (Server-side usage)
+*   **SQL Logic**: Ported from Evidence.dev queries
 
 ## Infrastructure & Deployment
-*   **Hosting**: Oracle Cloud (OCI)
-*   **Containerization**: Docker
-*   **CI/CD**: GitHub Actions (planned)
+*   **Hosting**: Cloudflare Pages
+*   **Adapter**: `@sveltejs/adapter-cloudflare`
+*   **CI/CD**: GitHub Actions
 
 ## Key Libraries
-*   `taipy`: UI and Core state management
-*   `dynaconf`: Configuration management
-*   `msal`: Microsoft Authentication Library
-*   `supabase`: Supabase client
-*   `sqlalchemy`: SQL toolkit for SQLite interactions
-*   `pandas`: Data manipulation
+*   `lucide-svelte`: Icons
+*   `chart.js` or `layerchart`: Data visualization
+*   `zod`: Schema validation for forms and API routes
