@@ -227,4 +227,12 @@ backend/node_modules/
 backend/dist/
 *.tsbuildinfo
 .wrangler/
-.dev.vars.svelte-kit/
+.dev.vars
+.svelte-kit/
+
+# Local backup and config files
+*.local
+*_backup.py
+app_streamlit_backup.py
+auth.py.local
+SUPABASE_AUTH_SETUP.md.local
