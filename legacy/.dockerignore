@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+venv
+
+# IDE
+.vscode
+.idea
+
+# Local files
+.secrets.toml
+DATA/
+*.db
+*.sqlite
+
+# Build artifacts
+*.zip
+wndmngr-deploy.zip
+
+# Docs/Dev
+docs/
+legacy/
+.bmad-core/
+.claude/
+.gemini/

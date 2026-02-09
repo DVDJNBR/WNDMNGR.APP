@@ -1,0 +1,26 @@
+name = "wndmngr-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+# Environment variables (non-secrets)
+[vars]
+REDIRECT_URI = "http://localhost:8787/auth/callback"
+FRONTEND_URL = "http://localhost:3000"
+
+[env.production]
+vars = { REDIRECT_URI = "https://wndmngr-api.wpd.workers.dev/auth/callback", FRONTEND_URL = "https://wndmngr.app" }
+
+# Secrets (set via `wrangler secret put` or .dev.vars for local dev)
+# Azure Entra ID
+# AZURE_TENANT_ID
+# AZURE_CLIENT_ID
+# AZURE_CLIENT_SECRET
+#
+# Supabase Database
+# SUPABASE_URL
+# SUPABASE_ANON_KEY
+# SUPABASE_SERVICE_ROLE_KEY (optional, for admin operations)

@@ -1,0 +1,11 @@
+# Azure Entra ID (Application Registration)
+AZURE_TENANT_ID=your-tenant-id-here
+AZURE_CLIENT_ID=your-client-id-here
+AZURE_CLIENT_SECRET=your-client-secret-here
+
+# Supabase (Project Settings -> API)
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key-here
+
+# Optional: Frontend URL for redirects (default is http://localhost:3000)
+# FRONTEND_URL=http://localhost:3000

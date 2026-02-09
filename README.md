@@ -1,1 +1,3 @@
-# WNDMNGR - Wind Farm Management App
+# Wind Manager Dashboard
+
+

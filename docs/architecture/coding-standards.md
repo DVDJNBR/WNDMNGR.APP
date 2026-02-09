@@ -1,23 +1,24 @@
-# Coding Standards
+# Coding Standards (SvelteKit/TypeScript)
 
-## General Python
-*   **Style Guide**: PEP 8 compliance.
-*   **Type Hinting**: Required for all function signatures (e.g., `def my_func(a: int) -> str:`).
-*   **Docstrings**: Google Style docstrings for all modules, classes, and functions.
+## TypeScript & Svelte
+*   **Typing**: Strict mode enabled. Define interfaces for all Data models.
+*   **Svelte Components**: Use `<script lang="ts">`. Follow the "one component per file" rule.
+*   **Props**: Use `export let` (Svelte 4 style) or `$props()` (Svelte 5 runes) as appropriate for the version chosen.
 
-## Taipy Specifics
-*   **Callbacks**: Name callbacks clearly, e.g., `on_submit_action`, `on_change_input`.
-*   **State**: Minimize global state usage; use Taipy's `state` object effectively within callbacks.
-*   **Layout**: Use `tgb` (Taipy GUI Builder) syntax for Python-based UI definition over Markdown where complex logic is involved, though Markdown is acceptable for static content.
+## Data Fetching (SSR)
+*   **Loaders**: Use `+page.server.ts` or `+layout.server.ts` for all database interactions.
+*   **Actions**: Use SvelteKit Form Actions for all mutations (Create/Update/Delete).
+*   **Security**: Never expose the Supabase `SERVICE_ROLE_KEY` to the client.
 
-## Configuration (Dynaconf)
-*   **Access**: Always access config via `settings.key` (from `config.py`), never hardcode values.
-*   **Secrets**: Never commit secrets. Use `.secrets.toml` or Environment Variables.
+## Folder Structure
+*   `src/lib/server`: Server-only logic (DB clients, utilities).
+*   `src/lib/components`: Shared UI components.
+*   `src/routes`: SvelteKit routing tree.
+
+## CSS / Styling
+*   **Utility-First**: Use Tailwind CSS classes.
+*   **Consistency**: Follow the project's color palette (inspired by legacy Streamlit/Taipy designs).
 
 ## Error Handling
-*   **Exceptions**: Use specific exception blocks (avoid bare `except:`).
-*   **Logging**: Use Python's `logging` module. Do not use `print` statements in production code.
-
-## Testing
-*   **Framework**: `pytest`.
-*   **Coverage**: Aim for high coverage on Business Logic (`database.py`, `auth.py`). UI testing is secondary.
+*   **Server Errors**: Use SvelteKit's `error()` helper.
+*   **Form Validation**: Use Zod for server-side validation.

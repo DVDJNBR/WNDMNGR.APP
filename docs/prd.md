@@ -1,114 +1,78 @@
-# WNDMNGR Modernization PRD
+# WNDMNGR Unified Platform PRD
 
 ## 1. Intro Project Analysis and Context
 
 ### Analysis Source
-*   **Source**: Analysis of existing codebase (`app.py`, `auth.py`, `database.py`) and user interaction.
+*   **Source**: Analysis of legacy codebase and strategic pivot toward a unified SvelteKit application on Cloudflare.
 
 ### Current Project State
-The project is a Wind Farm Management application ("WNDMNGR") built with Streamlit. It uses a Facade pattern for database access, switching between SQLite (Local/Dev) and Supabase (Prod). Authentication is similarly split (Mock vs. Supabase). It is well-structured but requires modernization to Taipy and enhancements for enterprise readiness.
+The project is transitioning from a fragmented architecture (Streamlit/Next.js CRUD + Evidence.dev Dashboard) to a **unified SvelteKit application**. The goal is to provide a single, secure, and performant platform for both Farm Management (CRUD) and Operational Dashboards.
 
 ### Enhancement Scope
-*   **Type**: Tech Stack Upgrade (Streamlit -> Taipy), Infrastructure (-> HF Spaces), Auth (-> Entra ID), and New Features.
-*   **Impact**: Major Impact. Requires rebuilding the UI layer and significantly refactoring the Auth/Config layers.
+*   **Type**: Tech Stack Pivot (SvelteKit SSR), Infrastructure (Cloudflare Pages), Auth (Cloudflare Access / Microsoft Entra ID), and Unified Dashboard/CRUD.
+*   **Impact**: Major Impact. Requires a unified codebase to replace legacy fragments.
 
 ### Goals
-*   Migrate fully to Taipy framework.
-*   Implement Microsoft Entra ID authentication (with Supabase Auth as fallback/legacy).
-*   Deploy to Hugging Face Spaces.
-*   Add "Add Farm" Wizard and Cascading Delete.
-*   Display Database Documentation in-app.
+*   Implement a **Unified SvelteKit Platform** hosted on **Cloudflare Pages**.
+*   Utilize **Cloudflare Access** with **Microsoft Entra ID** for authentication (restricting access to `@wpd.fr`).
+*   Integrate **Supabase (PostgreSQL)** for data storage using server-side fetching (SSR) to ensure data security.
+*   Port existing **Evidence.dev SQL queries** and dashboard logic into SvelteKit.
+*   Maintain **B2 API REST certification** readiness through structured API routes.
+*   Future-proof for **Rotorsoft API** integration and maintenance report scraping/ingestion.
 
 ---
 
 ## 2. Requirements
 
 ### Functional Requirements
-*   **FR1**: The application must run on **Taipy** with a responsive layout.
-*   **FR2**: Production Authentication must support **Microsoft Entra ID**.
-*   **FR3**: Production Authentication must retain **Supabase Auth** as a fallback or for legacy users.
-*   **FR4**: Local Development must continue to use **SQLite** and simple/mock authentication.
-*   **FR5**: "Add Farm" feature must be a multi-step **Wizard** preventing incomplete data entry.
-*   **FR6**: Users must be able to **View and Edit** all farm data categories (General, Contacts, etc.).
-*   **FR7**: A "Hidden" or Admin-only **Cascading Delete** must allow removal of a farm and all dependencies.
-*   **FR8**: Contact cards must feature a **"Send Email"** button.
-*   **FR9**: A **Documentation Tab** must display the database schema and metadata.
+*   **FR1**: The application must be built with **SvelteKit** using **SSR** for secure data handling.
+*   **FR2**: **Authentication** must be handled by **Cloudflare Access** integrated with **Microsoft Entra ID**.
+*   **FR3**: The platform must feature a **Dashboard** displaying farm stats, status, and turbine details (porting queries from `dashboard-handoff.md`).
+*   **FR4**: The platform must provide **CRUD operations** for farm data management.
+*   **FR5**: Implement a multi-step **"Add Farm" Wizard** to ensure data quality.
+*   **FR6**: A **Cascading Delete** feature must be available for administrative users.
+*   **FR7**: Support future **Data Ingestion** from Rotorsoft and maintenance reports.
 
 ### Non-Functional Requirements
-*   **NFR1**: Deployable to **Hugging Face Spaces** (Dockerized).
-*   **NFR2**: Configuration managed via **Dynaconf**.
-*   **NFR3**: UI response time for edits should be immediate (<200ms) where possible.
+*   **NFR1**: Deployment to **Cloudflare Pages** using `adapter-cloudflare`.
+*   **NFR2**: **Security**: No database connection strings or sensitive data exposed to the client.
+*   **NFR3**: **Performance**: Optimize for Cloudflare edge performance and minimal cold starts.
+*   **NFR4**: **Maintainability**: Unified TypeScript codebase for both frontend and backend logic.
 
 ### Compatibility Requirements
-*   **CR1**: Must not break existing SQLite data structure for local dev.
-*   **CR2**: Must respect existing Supabase RLS policies (if any).
+*   **CR1**: Must work with existing **Supabase** schema.
+*   **CR2**: Local development must support environment variable masking for Cloudflare Access headers.
 
 ---
 
 ## 3. Technical Constraints
 
 ### Integration Approach
-*   **Auth**: A strategy pattern for Auth: `EntraIDProvider`, `SupabaseProvider`, `LocalProvider`.
-*   **Config**: `settings.toml` for base, `.secrets.toml` for local secrets, Environment Variables for HF Spaces.
-*   **DB**: Reuse `database.py` logic but wrap it to handle Taipy's state management.
-
-### Deployment
-*   **Container**: Dockerfile required for HF Spaces.
-*   **Ports**: Taipy runs on 5000 (default) or variable.
+*   **Auth**: Cloudflare Access (Zero Trust) verifies Entra ID identity. SvelteKit reads identity headers (e.g., `Cf-Access-Authenticated-User-Email`).
+*   **DB**: Supabase accessed via server-side loaders and actions in SvelteKit.
+*   **Hosting**: Cloudflare Pages.
 
 ---
 
-## 4. Epic Details: WNDMNGR Modernization
+## 4. Epic Details: SvelteKit Unified Platform
 
-**Epic Goal**: Transform WNDMNGR into an enterprise-ready, Taipy-based application deployed on HF Spaces.
+### Story Sequence (High-Level)
 
-### Story Sequence
+#### Epic 1: Scaffolding & Security
+*   Initialize SvelteKit with Tailwind CSS and Cloudflare Adapter.
+*   Configure Cloudflare Access and verify identity propagation to SvelteKit.
+*   Setup Supabase client and server-side connection pooling.
 
-#### Story 1: Foundation & Config (Dynaconf + Taipy Init)
-**As a** Developer, **I want** to initialize the Taipy project and set up Dynaconf, **so that** I have a clean environment that distinguishes between Local and Prod.
-*   **AC1**: Dynaconf is installed and configured.
-*   **AC2**: Taipy "Hello World" runs.
-*   **AC3**: `settings.toml` defines the environment.
+#### Epic 2: Operational Dashboard
+*   Implement Farm Selection logic.
+*   Port SQL queries for Farm Info, Localisation, Status, and Turbines.
+*   Build responsive visualization components for farm data.
 
-#### Story 2: Universal Authentication Strategy
-**As a** User, **I want** to log in using Entra ID (or Supabase as backup), **so that** my access is secure and managed.
-*   **AC1**: Abstract Auth class created.
-*   **AC2**: `LocalProvider` implements SQLite auth.
-*   **AC3**: `EntraIDProvider` implemented (using `msal`).
-*   **AC4**: `SupabaseProvider` ported from legacy code.
-*   **AC5**: Configuration determines which provider is active.
+#### Epic 3: Farm Management (CRUD)
+*   Implement List and View screens for farms.
+*   Develop the "Add Farm" multi-step Wizard.
+*   Implement Edit and Cascading Delete functionality.
 
-#### Story 3: Data Layer Adaptation
-**As a** Developer, **I want** to adapt `database.py` for Taipy, **so that** the UI can interact with data efficiently.
-*   **AC1**: `database.py` functions verified against Taipy callbacks.
-*   **AC2**: Global state management (Current Farm, Current User) implemented in Taipy.
-
-#### Story 4: Dashboard & Read Views
-**As a** User, **I want** to browse Farms and their details, **so that** I can access information.
-*   **AC1**: Sidebar lists all farms.
-*   **AC2**: Tabs for General, Referents, Services, Technical implemented.
-*   **AC3**: Data is read-only in this phase.
-*   **AC4**: "Send Email" button implemented on Contact cards.
-
-#### Story 5: Edit & Live Updates
-**As a** User, **I want** to edit farm details, **so that** the database is kept up-to-date.
-*   **AC1**: Fields are editable.
-*   **AC2**: Changes trigger DB updates immediately (or on "Save").
-*   **AC3**: Success/Error notifications shown.
-
-#### Story 6: The Creation Wizard
-**As a** User, **I want** to add a new farm via a step-by-step wizard, **so that** I don't miss critical info.
-*   **AC1**: Wizard UI implemented (Steps: ID, Loc, Tech, etc.).
-*   **AC2**: Data is held in temporary state until "Finish".
-*   **AC3**: "Finish" triggers atomic DB transaction.
-
-#### Story 7: Admin Features (Delete & Docs)
-**As an** Admin, **I want** to delete farms and view schema docs, **so that** I can manage the system health.
-*   **AC1**: Cascading Delete function implemented and exposed safely.
-*   **AC2**: Documentation tab renders schema info.
-
-#### Story 8: HF Spaces Deployment
-**As a** DevOps, **I want** to deploy the app to Hugging Face, **so that** users can access it.
-*   **AC1**: `Dockerfile` created.
-*   **AC2**: HF Space created and connected.
-*   **AC3**: Environment variables configured in HF.
+#### Epic 4: Advanced Data & Documentation
+*   Implement Documentation tab for DB schema.
+*   Prepare API routes for Rotorsoft/Scraper integration.
