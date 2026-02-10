@@ -1,28 +1,6 @@
-import { supabase } from '$lib/server/supabase';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	try {
-		const { data: farms, error } = await supabase
-			.from('farms')
-			.select('uuid, project')
-			.limit(5);
-
-		if (error) {
-			return {
-				success: false,
-				error: error.message
-			};
-		}
-
-		return {
-			success: true,
-			farms
-		};
-	} catch (err) {
-		return {
-			success: false,
-			error: err instanceof Error ? err.message : 'Unknown error'
-		};
-	}
+	throw redirect(302, '/dashboard');
 };
