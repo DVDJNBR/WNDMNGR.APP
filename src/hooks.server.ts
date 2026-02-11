@@ -16,12 +16,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 
 		// --- PRODUCTION: Supabase Auth via @supabase/ssr ---
-		const supabaseUrl = env.SUPABASE_URL;
-		const supabaseAnonKey = env.SUPABASE_ANON_KEY;
+		// Try SvelteKit dynamic env first, fallback to Cloudflare platform bindings
+		const supabaseUrl = env.SUPABASE_URL || (event.platform?.env as Record<string, string>)?.SUPABASE_URL;
+		const supabaseAnonKey = env.SUPABASE_ANON_KEY || (event.platform?.env as Record<string, string>)?.SUPABASE_ANON_KEY;
 
 		if (!supabaseUrl || !supabaseAnonKey) {
+			const platformKeys = event.platform?.env ? Object.keys(event.platform.env as object) : [];
 			return new Response(
-				`Config error: SUPABASE_URL=${supabaseUrl ? 'set' : 'MISSING'}, SUPABASE_ANON_KEY=${supabaseAnonKey ? 'set' : 'MISSING'}`,
+				`Config error: SUPABASE_URL=${supabaseUrl ? 'set' : 'MISSING'}, SUPABASE_ANON_KEY=${supabaseAnonKey ? 'set' : 'MISSING'}. Platform env keys: [${platformKeys.join(', ')}]`,
 				{ status: 500 }
 			);
 		}
