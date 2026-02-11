@@ -2,6 +2,12 @@ import { type Handle, redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { createServerClient } from '@supabase/ssr';
+import { configureSupabase } from '$lib/server/supabase';
+
+/** Read an env var: try $env/dynamic/private first, fallback to Cloudflare platform.env */
+function getEnv(key: string, platform?: App.Platform): string | undefined {
+	return env[key] || (platform?.env as Record<string, string>)?.[key];
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	try {
@@ -15,10 +21,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 			return resolve(event);
 		}
 
-		// --- PRODUCTION: Supabase Auth via @supabase/ssr ---
-		// Try SvelteKit dynamic env first, fallback to Cloudflare platform bindings
-		const supabaseUrl = env.SUPABASE_URL || (event.platform?.env as Record<string, string>)?.SUPABASE_URL;
-		const supabaseAnonKey = env.SUPABASE_ANON_KEY || (event.platform?.env as Record<string, string>)?.SUPABASE_ANON_KEY;
+		// --- PRODUCTION: read env vars (Cloudflare runtime) ---
+		const supabaseUrl = getEnv('SUPABASE_URL', event.platform);
+		const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY', event.platform);
+		const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY', event.platform);
 
 		if (!supabaseUrl || !supabaseAnonKey) {
 			const platformKeys = event.platform?.env ? Object.keys(event.platform.env as object) : [];
@@ -28,6 +34,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 			);
 		}
 
+		// Configure the data client (uses service role key if available for RLS bypass)
+		configureSupabase(supabaseUrl, serviceRoleKey || supabaseAnonKey);
+
+		// Auth client (always uses anon key)
 		event.locals.supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
 			cookies: {
 				getAll: () => event.cookies.getAll(),
