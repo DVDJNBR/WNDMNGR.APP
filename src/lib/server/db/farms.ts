@@ -406,27 +406,14 @@ export async function upsertFarmEnvironmentalInstallation(farmUuid: string, farm
 	if (error) throw error;
 }
 
-/** Get recent production data for a farm (via wind_turbine_generators → wtg_production_10m) */
+/** Get recent production data for a farm (direct query via farm_uuid) */
 export async function getFarmProduction(farmUuid: string, hours: number = 24): Promise<WtgProduction10m[]> {
-	// Step 1: Get turbine rotorsoft_ids for this farm
-	const { data: turbines, error: turbineError } = await supabase
-		.from('wind_turbine_generators')
-		.select('rotorsoft_id, wtg_number')
-		.eq('farm_uuid', farmUuid)
-		.not('rotorsoft_id', 'is', null);
-
-	if (turbineError || !turbines || turbines.length === 0) return [];
-
-	const puIds = turbines.map((t: any) => t.rotorsoft_id).filter(Boolean);
-	if (puIds.length === 0) return [];
-
-	// Step 2: Get production data for last N hours
 	const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
 	const { data, error } = await supabase
 		.from('wtg_production_10m')
-		.select('pu_id, timestamp, active_power_avg_kw, wind_speed_avg_ms, op_state')
-		.in('pu_id', puIds)
+		.select('pu_id, timestamp, active_power_avg_kw, wind_speed_avg_ms')
+		.eq('farm_uuid', farmUuid)
 		.gte('timestamp', since)
 		.order('timestamp', { ascending: true });
 

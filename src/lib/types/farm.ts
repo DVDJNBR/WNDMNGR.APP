@@ -119,7 +119,6 @@ export interface WtgProduction10m {
 	timestamp: string;
 	active_power_avg_kw: number | null;
 	wind_speed_avg_ms: number | null;
-	op_state: string | null;
 }
 
 // Performance (1:N by year)
