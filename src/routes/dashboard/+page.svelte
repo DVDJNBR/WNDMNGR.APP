@@ -65,6 +65,95 @@
 		}
 	}
 
+	// Contracts editing state
+	let editingContractSection = '';
+	let savingContract = false;
+
+	let adminFields = {
+		siret_number: '',
+		vat_number: '',
+		account_number: '',
+		legal_representative: '',
+		head_office_address: '',
+		windmanager_subsidiary: ''
+	};
+	let omFields = { service_contract_type: '', contract_end_date: '' };
+	let tcmaFields = { contract_type: '', tcma_status: '', effective_date: '', end_date: '' };
+	let finGuarFields = { amount: 0, due_date: '' };
+	let elecDelFields = { in_place: false, drei_date: '' };
+	let envInstFields = { aip_number: '', prefecture_name: '', duty_dreal_contact: '' };
+
+	function startEditContract(section: string) {
+		editingContractSection = section;
+		if (section === 'administration') {
+			const a = fd?.administration;
+			adminFields = {
+				siret_number: a?.siret_number ?? '',
+				vat_number: a?.vat_number ?? '',
+				account_number: a?.account_number ?? '',
+				legal_representative: a?.legal_representative ?? '',
+				head_office_address: a?.head_office_address ?? '',
+				windmanager_subsidiary: a?.windmanager_subsidiary ?? ''
+			};
+		} else if (section === 'om-contract') {
+			const o = fd?.omContract;
+			omFields = {
+				service_contract_type: o?.service_contract_type ?? '',
+				contract_end_date: o?.contract_end_date ?? ''
+			};
+		} else if (section === 'tcma-contract') {
+			const t = fd?.tcmaContract;
+			tcmaFields = {
+				contract_type: t?.contract_type ?? '',
+				tcma_status: t?.tcma_status ?? '',
+				effective_date: t?.effective_date ?? '',
+				end_date: t?.end_date ?? ''
+			};
+		} else if (section === 'financial-guarantee') {
+			const f = fd?.financialGuarantee;
+			finGuarFields = {
+				amount: f?.amount ?? 0,
+				due_date: f?.due_date ?? ''
+			};
+		} else if (section === 'electrical-delegation') {
+			const e = fd?.electricalDelegation;
+			elecDelFields = {
+				in_place: e?.in_place ?? false,
+				drei_date: e?.drei_date ?? ''
+			};
+		} else if (section === 'environmental-installation') {
+			const ei = fd?.environmentalInstallation;
+			envInstFields = {
+				aip_number: ei?.aip_number ?? '',
+				prefecture_name: ei?.prefecture_name ?? '',
+				duty_dreal_contact: ei?.duty_dreal_contact ?? ''
+			};
+		}
+	}
+
+	async function saveContract() {
+		if (!farm) return;
+		savingContract = true;
+		try {
+			let body: any;
+			if (editingContractSection === 'administration') body = adminFields;
+			else if (editingContractSection === 'om-contract') body = omFields;
+			else if (editingContractSection === 'tcma-contract') body = tcmaFields;
+			else if (editingContractSection === 'financial-guarantee') body = finGuarFields;
+			else if (editingContractSection === 'electrical-delegation') body = elecDelFields;
+			else if (editingContractSection === 'environmental-installation') body = envInstFields;
+
+			const res = await fetch(`/api/farms/${farm.uuid}/${editingContractSection}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			if (res.ok) window.location.reload();
+		} finally {
+			savingContract = false;
+		}
+	}
+
 	// Location editing
 	let editingLocation = false;
 	let locFields = {
@@ -478,132 +567,183 @@
 			<!-- TAB: Contracts -->
 			{:else if activeTab === 'Contracts'}
 				<div class="grid grid-cols-2 gap-6">
+					<!-- Administration -->
 					<div>
-						<h2 class="section-title">Administration</h2>
+						<div class="flex items-center justify-between mb-2">
+							<h2 class="section-title mb-0 pb-0 border-0">Administration</h2>
+							{#if editingContractSection !== 'administration'}
+								<button class="btn-edit" on:click={() => startEditContract('administration')}>Edit</button>
+							{/if}
+						</div>
 						<FarmCard>
-							<div class="space-y-2 text-sm">
-								<div>
-									<span class="info-label">SIRET</span>
-									<div class="info-value">{fd?.administration?.siret_number ?? 'N/A'}</div>
+							{#if editingContractSection === 'administration'}
+								<div class="space-y-3 text-sm">
+									<div><label class="info-label block">SIRET</label><input bind:value={adminFields.siret_number} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div><label class="info-label block">VAT Number</label><input bind:value={adminFields.vat_number} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div><label class="info-label block">Account Number</label><input bind:value={adminFields.account_number} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div><label class="info-label block">Legal Representative</label><input bind:value={adminFields.legal_representative} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div><label class="info-label block">Head Office</label><input bind:value={adminFields.head_office_address} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div><label class="info-label block">WM Subsidiary</label><input bind:value={adminFields.windmanager_subsidiary} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+									<div class="flex gap-2 pt-1">
+										<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+										<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
+									</div>
 								</div>
-								<div>
-									<span class="info-label">VAT Number</span>
-									<div class="info-value">{fd?.administration?.vat_number ?? 'N/A'}</div>
+							{:else}
+								<div class="space-y-2 text-sm">
+									<div><span class="info-label">SIRET</span><div class="info-value">{fd?.administration?.siret_number ?? 'N/A'}</div></div>
+									<div><span class="info-label">VAT Number</span><div class="info-value">{fd?.administration?.vat_number ?? 'N/A'}</div></div>
+									<div><span class="info-label">Account Number</span><div class="info-value">{fd?.administration?.account_number ?? 'N/A'}</div></div>
+									<div><span class="info-label">Legal Representative</span><div class="info-value">{fd?.administration?.legal_representative ?? 'N/A'}</div></div>
+									<div><span class="info-label">Head Office</span><div class="info-value">{fd?.administration?.head_office_address ?? 'N/A'}</div></div>
+									<div><span class="info-label">WM Subsidiary</span><div class="info-value">{fd?.administration?.windmanager_subsidiary ?? 'N/A'}</div></div>
 								</div>
-								<div>
-									<span class="info-label">Account Number</span>
-									<div class="info-value">{fd?.administration?.account_number ?? 'N/A'}</div>
-								</div>
-								<div>
-									<span class="info-label">Legal Representative</span>
-									<div class="info-value">{fd?.administration?.legal_representative ?? 'N/A'}</div>
-								</div>
-								<div>
-									<span class="info-label">Head Office</span>
-									<div class="info-value">{fd?.administration?.head_office_address ?? 'N/A'}</div>
-								</div>
-								<div>
-									<span class="info-label">WM Subsidiary</span>
-									<div class="info-value">{fd?.administration?.windmanager_subsidiary ?? 'N/A'}</div>
-								</div>
-							</div>
+							{/if}
 						</FarmCard>
 					</div>
 
 					<div class="space-y-6">
+						<!-- O&M Contract -->
 						<div>
-							<h2 class="section-title">O&M Contract</h2>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="section-title mb-0 pb-0 border-0">O&M Contract</h2>
+								{#if editingContractSection !== 'om-contract'}
+									<button class="btn-edit" on:click={() => startEditContract('om-contract')}>Edit</button>
+								{/if}
+							</div>
 							<FarmCard>
-								<div class="space-y-2 text-sm">
-									<div>
-										<span class="info-label">Contract Type</span>
-										<div class="info-value">{fd?.omContract?.service_contract_type ?? 'N/A'}</div>
-									</div>
-									<div>
-										<span class="info-label">End Date</span>
-										<div class="info-value">{fd?.omContract?.contract_end_date ?? 'N/A'}</div>
-									</div>
-								</div>
-							</FarmCard>
-						</div>
-
-						<div>
-							<h2 class="section-title">TCMA Contract</h2>
-							<FarmCard>
-								<div class="space-y-2 text-sm">
-									<div>
-										<span class="info-label">Contract Type</span>
-										<div class="info-value">{fd?.tcmaContract?.contract_type ?? 'N/A'}</div>
-									</div>
-									<div>
-										<span class="info-label">Status</span>
-										<div class="info-value">{fd?.tcmaContract?.tcma_status ?? 'N/A'}</div>
-									</div>
-									<div>
-										<span class="info-label">Effective Date</span>
-										<div class="info-value">{fd?.tcmaContract?.effective_date ?? 'N/A'}</div>
-									</div>
-									<div>
-										<span class="info-label">End Date</span>
-										<div class="info-value">{fd?.tcmaContract?.end_date ?? 'N/A'}</div>
-									</div>
-								</div>
-							</FarmCard>
-						</div>
-
-						<div>
-							<h2 class="section-title">Financial Guarantee</h2>
-							<FarmCard>
-								<div class="space-y-2 text-sm">
-									<div>
-										<span class="info-label">Amount</span>
-										<div class="info-value">
-											{fd?.financialGuarantee?.amount != null
-												? `${fd.financialGuarantee.amount.toLocaleString()} EUR`
-												: 'N/A'}
+								{#if editingContractSection === 'om-contract'}
+									<div class="space-y-3 text-sm">
+										<div><label class="info-label block">Contract Type</label><input bind:value={omFields.service_contract_type} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">End Date</label><input type="date" bind:value={omFields.contract_end_date} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div class="flex gap-2 pt-1">
+											<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+											<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
 										</div>
 									</div>
-									<div>
-										<span class="info-label">Due Date</span>
-										<div class="info-value">{fd?.financialGuarantee?.due_date ?? 'N/A'}</div>
+								{:else}
+									<div class="space-y-2 text-sm">
+										<div><span class="info-label">Contract Type</span><div class="info-value">{fd?.omContract?.service_contract_type ?? 'N/A'}</div></div>
+										<div><span class="info-label">End Date</span><div class="info-value">{fd?.omContract?.contract_end_date ?? 'N/A'}</div></div>
 									</div>
-								</div>
+								{/if}
 							</FarmCard>
 						</div>
 
+						<!-- TCMA Contract -->
 						<div>
-							<h2 class="section-title">Electrical Delegation</h2>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="section-title mb-0 pb-0 border-0">TCMA Contract</h2>
+								{#if editingContractSection !== 'tcma-contract'}
+									<button class="btn-edit" on:click={() => startEditContract('tcma-contract')}>Edit</button>
+								{/if}
+							</div>
 							<FarmCard>
-								<div class="space-y-2 text-sm">
-									<div>
-										<span class="info-label">In Place</span>
-										<div class="info-value">{fd?.electricalDelegation?.in_place ? 'Yes' : 'No'}</div>
+								{#if editingContractSection === 'tcma-contract'}
+									<div class="space-y-3 text-sm">
+										<div><label class="info-label block">Contract Type</label><input bind:value={tcmaFields.contract_type} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">Status</label><input bind:value={tcmaFields.tcma_status} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">Effective Date</label><input type="date" bind:value={tcmaFields.effective_date} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">End Date</label><input type="date" bind:value={tcmaFields.end_date} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div class="flex gap-2 pt-1">
+											<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+											<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
+										</div>
 									</div>
-									<div>
-										<span class="info-label">DREI Date</span>
-										<div class="info-value">{fd?.electricalDelegation?.drei_date ?? 'N/A'}</div>
+								{:else}
+									<div class="space-y-2 text-sm">
+										<div><span class="info-label">Contract Type</span><div class="info-value">{fd?.tcmaContract?.contract_type ?? 'N/A'}</div></div>
+										<div><span class="info-label">Status</span><div class="info-value">{fd?.tcmaContract?.tcma_status ?? 'N/A'}</div></div>
+										<div><span class="info-label">Effective Date</span><div class="info-value">{fd?.tcmaContract?.effective_date ?? 'N/A'}</div></div>
+										<div><span class="info-label">End Date</span><div class="info-value">{fd?.tcmaContract?.end_date ?? 'N/A'}</div></div>
 									</div>
-								</div>
+								{/if}
 							</FarmCard>
 						</div>
 
+						<!-- Financial Guarantee -->
 						<div>
-							<h2 class="section-title">Environmental Installation</h2>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="section-title mb-0 pb-0 border-0">Financial Guarantee</h2>
+								{#if editingContractSection !== 'financial-guarantee'}
+									<button class="btn-edit" on:click={() => startEditContract('financial-guarantee')}>Edit</button>
+								{/if}
+							</div>
 							<FarmCard>
-								<div class="space-y-2 text-sm">
-									<div>
-										<span class="info-label">AIP Number</span>
-										<div class="info-value">{fd?.environmentalInstallation?.aip_number ?? 'N/A'}</div>
+								{#if editingContractSection === 'financial-guarantee'}
+									<div class="space-y-3 text-sm">
+										<div><label class="info-label block">Amount (EUR)</label><input type="number" bind:value={finGuarFields.amount} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">Due Date</label><input type="date" bind:value={finGuarFields.due_date} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div class="flex gap-2 pt-1">
+											<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+											<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
+										</div>
 									</div>
-									<div>
-										<span class="info-label">Prefecture</span>
-										<div class="info-value">{fd?.environmentalInstallation?.prefecture_name ?? 'N/A'}</div>
+								{:else}
+									<div class="space-y-2 text-sm">
+										<div><span class="info-label">Amount</span><div class="info-value">{fd?.financialGuarantee?.amount != null ? `${fd.financialGuarantee.amount.toLocaleString()} EUR` : 'N/A'}</div></div>
+										<div><span class="info-label">Due Date</span><div class="info-value">{fd?.financialGuarantee?.due_date ?? 'N/A'}</div></div>
 									</div>
-									<div>
-										<span class="info-label">DREAL Contact</span>
-										<div class="info-value">{fd?.environmentalInstallation?.duty_dreal_contact ?? 'N/A'}</div>
+								{/if}
+							</FarmCard>
+						</div>
+
+						<!-- Electrical Delegation -->
+						<div>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="section-title mb-0 pb-0 border-0">Electrical Delegation</h2>
+								{#if editingContractSection !== 'electrical-delegation'}
+									<button class="btn-edit" on:click={() => startEditContract('electrical-delegation')}>Edit</button>
+								{/if}
+							</div>
+							<FarmCard>
+								{#if editingContractSection === 'electrical-delegation'}
+									<div class="space-y-3 text-sm">
+										<div class="flex items-center gap-2">
+											<label class="info-label">In Place</label>
+											<input type="checkbox" bind:checked={elecDelFields.in_place} class="rounded" />
+										</div>
+										<div><label class="info-label block">DREI Date</label><input type="date" bind:value={elecDelFields.drei_date} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div class="flex gap-2 pt-1">
+											<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+											<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
+										</div>
 									</div>
-								</div>
+								{:else}
+									<div class="space-y-2 text-sm">
+										<div><span class="info-label">In Place</span><div class="info-value">{fd?.electricalDelegation?.in_place ? 'Yes' : 'No'}</div></div>
+										<div><span class="info-label">DREI Date</span><div class="info-value">{fd?.electricalDelegation?.drei_date ?? 'N/A'}</div></div>
+									</div>
+								{/if}
+							</FarmCard>
+						</div>
+
+						<!-- Environmental Installation -->
+						<div>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="section-title mb-0 pb-0 border-0">Environmental Installation</h2>
+								{#if editingContractSection !== 'environmental-installation'}
+									<button class="btn-edit" on:click={() => startEditContract('environmental-installation')}>Edit</button>
+								{/if}
+							</div>
+							<FarmCard>
+								{#if editingContractSection === 'environmental-installation'}
+									<div class="space-y-3 text-sm">
+										<div><label class="info-label block">AIP Number</label><input bind:value={envInstFields.aip_number} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">Prefecture</label><input bind:value={envInstFields.prefecture_name} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div><label class="info-label block">DREAL Contact</label><input bind:value={envInstFields.duty_dreal_contact} class="w-full border rounded px-2 py-1 text-sm mt-1" /></div>
+										<div class="flex gap-2 pt-1">
+											<button class="btn-primary" on:click={saveContract} disabled={savingContract}>{savingContract ? '...' : 'Save'}</button>
+											<button class="btn-cancel" on:click={() => (editingContractSection = '')}>Cancel</button>
+										</div>
+									</div>
+								{:else}
+									<div class="space-y-2 text-sm">
+										<div><span class="info-label">AIP Number</span><div class="info-value">{fd?.environmentalInstallation?.aip_number ?? 'N/A'}</div></div>
+										<div><span class="info-label">Prefecture</span><div class="info-value">{fd?.environmentalInstallation?.prefecture_name ?? 'N/A'}</div></div>
+										<div><span class="info-label">DREAL Contact</span><div class="info-value">{fd?.environmentalInstallation?.duty_dreal_contact ?? 'N/A'}</div></div>
+									</div>
+								{/if}
 							</FarmCard>
 						</div>
 					</div>

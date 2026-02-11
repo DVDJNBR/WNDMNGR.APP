@@ -14,7 +14,8 @@ import type {
 	FarmCompanyRoleDisplay,
 	FarmFullData,
 	Company,
-	CompanyRole
+	CompanyRole,
+	FarmCompanyRole
 } from '$lib/types/farm';
 
 /** List all farms with type for the sidebar selector */
@@ -353,6 +354,54 @@ export async function createCompany(company: { uuid: string; name: string }) {
 		.from('companies')
 		.insert(company);
 
+	if (error) throw error;
+}
+
+/** Upsert farm administration */
+export async function upsertFarmAdministration(farmUuid: string, farmCode: string, fields: Partial<FarmAdministration>) {
+	const { error } = await supabase
+		.from('farm_administrations')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+	if (error) throw error;
+}
+
+/** Upsert farm O&M contract */
+export async function upsertFarmOMContract(farmUuid: string, farmCode: string, fields: Partial<FarmOMContract>) {
+	const { error } = await supabase
+		.from('farm_om_contracts')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+	if (error) throw error;
+}
+
+/** Upsert farm TCMA contract */
+export async function upsertFarmTCMAContract(farmUuid: string, farmCode: string, fields: Partial<FarmTCMAContract>) {
+	const { error } = await supabase
+		.from('farm_tcma_contracts')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+	if (error) throw error;
+}
+
+/** Upsert farm financial guarantee */
+export async function upsertFarmFinancialGuarantee(farmUuid: string, farmCode: string, fields: Partial<FarmFinancialGuarantee>) {
+	const { error } = await supabase
+		.from('farm_financial_guarantees')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+	if (error) throw error;
+}
+
+/** Upsert farm electrical delegation */
+export async function upsertFarmElectricalDelegation(farmUuid: string, farmCode: string, fields: Partial<FarmElectricalDelegation>) {
+	const { error } = await supabase
+		.from('farm_electrical_delegations')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+	if (error) throw error;
+}
+
+/** Upsert farm environmental installation */
+export async function upsertFarmEnvironmentalInstallation(farmUuid: string, farmCode: string, fields: Partial<FarmEnvironmentalInstallation>) {
+	const { error } = await supabase
+		.from('farm_environmental_installations')
+		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
 	if (error) throw error;
 }
 
