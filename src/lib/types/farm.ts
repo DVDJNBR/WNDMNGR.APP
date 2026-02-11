@@ -172,6 +172,8 @@ export interface FarmCompanyRole {
 export interface FarmCompanyRoleDisplay {
 	role_name: string;
 	company_name: string;
+	company_uuid: string;
+	company_role_id: number;
 }
 
 // Composite: all data for a selected farm

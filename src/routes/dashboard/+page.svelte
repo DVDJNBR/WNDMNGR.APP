@@ -113,6 +113,70 @@
 		}
 	}
 
+	// Services (company roles) editing state
+	let editingServiceRole = '';
+	let selectedCompanyUuid = '';
+	let savingService = false;
+	let showNewCompany = false;
+	let newCompanyName = '';
+
+	function getCompanyForRole(roleName: string): { company_name: string; company_uuid: string; company_role_id: number } | null {
+		const cr = fd?.companyRoles.find((c) => c.role_name === roleName);
+		return cr ?? null;
+	}
+
+	function startEditService(roleName: string) {
+		editingServiceRole = roleName;
+		const current = getCompanyForRole(roleName);
+		selectedCompanyUuid = current?.company_uuid ?? '';
+		showNewCompany = false;
+		newCompanyName = '';
+	}
+
+	function cancelEditService() {
+		editingServiceRole = '';
+	}
+
+	async function saveService() {
+		if (!farm) return;
+		savingService = true;
+		try {
+			const current = getCompanyForRole(editingServiceRole);
+
+			if (!selectedCompanyUuid && !showNewCompany) {
+				// Remove assignment
+				if (current) {
+					await fetch(`/api/farms/${farm.uuid}/company-roles`, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							companyRoleId: current.company_role_id,
+							companyUuid: current.company_uuid
+						})
+					});
+				}
+			} else {
+				const body: any = {
+					roleName: editingServiceRole,
+					companyUuid: selectedCompanyUuid,
+					oldCompanyUuid: current?.company_uuid
+				};
+				if (showNewCompany && newCompanyName) {
+					body.companyUuid = 'new';
+					body.newCompany = { name: newCompanyName };
+				}
+				await fetch(`/api/farms/${farm.uuid}/company-roles`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(body)
+				});
+			}
+			window.location.reload();
+		} finally {
+			savingService = false;
+		}
+	}
+
 	// Key person roles for the Referents tab
 	const personRoles = [
 		'Technical Manager',
@@ -360,20 +424,56 @@
 			<!-- TAB: Services -->
 			{:else if activeTab === 'Services'}
 				<h2 class="section-title">Service Providers</h2>
-				{#if fd?.companyRoles && fd.companyRoles.length > 0}
-					<div class="grid grid-cols-2 gap-4">
-						{#each fd.companyRoles as cr}
-							<FarmCard>
-								<div class="info-label">{cr.role_name}</div>
-								<div class="info-value">{cr.company_name}</div>
-							</FarmCard>
-						{/each}
-					</div>
-				{:else}
-					<div class="info-card text-center text-gray-400 py-8">
-						No service providers configured
-					</div>
-				{/if}
+				<div class="grid grid-cols-2 gap-4">
+					{#each data.companyRoles as role}
+						<div class="info-card">
+							<div class="info-label">{role.role_name}</div>
+
+							{#if editingServiceRole === role.role_name}
+								<div class="mt-2 space-y-2">
+									<select
+										bind:value={selectedCompanyUuid}
+										class="w-full border rounded px-2 py-1 text-sm"
+									>
+										<option value="">N/A</option>
+										{#each data.companies as company}
+											<option value={company.uuid}>
+												{company.name}
+											</option>
+										{/each}
+									</select>
+
+									<button
+										class="text-xs text-[var(--color-primary)] underline"
+										on:click={() => (showNewCompany = !showNewCompany)}
+									>
+										{showNewCompany ? 'Cancel new company' : '+ New Company'}
+									</button>
+
+									{#if showNewCompany}
+										<input
+											bind:value={newCompanyName}
+											placeholder="Company name"
+											class="w-full border rounded px-2 py-1 text-sm"
+										/>
+									{/if}
+
+									<div class="flex gap-2">
+										<button class="btn-primary" on:click={saveService} disabled={savingService}>
+											{savingService ? '...' : 'Save'}
+										</button>
+										<button class="btn-cancel" on:click={cancelEditService}>Cancel</button>
+									</div>
+								</div>
+							{:else}
+								<div class="flex items-center gap-2 mt-1">
+									<span class="info-value">{getCompanyForRole(role.role_name)?.company_name ?? 'N/A'}</span>
+									<button class="btn-edit" on:click={() => startEditService(role.role_name)}>Edit</button>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
 
 			<!-- TAB: Contracts -->
 			{:else if activeTab === 'Contracts'}

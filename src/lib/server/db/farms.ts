@@ -12,7 +12,9 @@ import type {
 	FarmFinancialGuarantee,
 	FarmPerformance,
 	FarmCompanyRoleDisplay,
-	FarmFullData
+	FarmFullData,
+	Company,
+	CompanyRole
 } from '$lib/types/farm';
 
 /** List all farms with type for the sidebar selector */
@@ -178,14 +180,16 @@ export async function getFarmTargetPerformances(farmUuid: string): Promise<FarmP
 export async function getFarmCompanyRoles(farmUuid: string): Promise<FarmCompanyRoleDisplay[]> {
 	const { data, error } = await supabase
 		.from('farm_company_roles')
-		.select('company_role_id, companies(name), company_roles(role_name)')
+		.select('company_uuid, company_role_id, companies(name), company_roles(role_name)')
 		.eq('farm_uuid', farmUuid);
 
 	if (error) return [];
 
 	return (data ?? []).map((r: any) => ({
 		role_name: r.company_roles?.role_name ?? 'N/A',
-		company_name: r.companies?.name ?? 'N/A'
+		company_name: r.companies?.name ?? 'N/A',
+		company_uuid: r.company_uuid,
+		company_role_id: r.company_role_id
 	}));
 }
 
@@ -259,6 +263,95 @@ export async function upsertFarmLocation(farmUuid: string, farmCode: string, fie
 	const { error } = await supabase
 		.from('farm_locations')
 		.upsert({ farm_uuid: farmUuid, farm_code: farmCode, ...fields });
+
+	if (error) throw error;
+}
+
+/** Get all companies (for dropdown) */
+export async function getAllCompanies(): Promise<Company[]> {
+	const { data, error } = await supabase
+		.from('companies')
+		.select('uuid, name')
+		.order('name');
+
+	if (error) return [];
+	return data ?? [];
+}
+
+/** Get all company role types (for dropdown) */
+export async function getAllCompanyRoles(): Promise<CompanyRole[]> {
+	const { data, error } = await supabase
+		.from('company_roles')
+		.select('id, role_name')
+		.order('role_name');
+
+	if (error) return [];
+	return data ?? [];
+}
+
+/** Get company role ID by name */
+export async function getCompanyRoleByName(roleName: string): Promise<number | null> {
+	const { data, error } = await supabase
+		.from('company_roles')
+		.select('id')
+		.eq('role_name', roleName)
+		.single();
+
+	if (error) return null;
+	return data.id;
+}
+
+/** Upsert a farm company role assignment */
+export async function upsertFarmCompanyRole(
+	farmUuid: string,
+	farmCode: string,
+	companyRoleId: number,
+	companyUuid: string,
+	oldCompanyUuid?: string
+) {
+	// If changing company for an existing role, delete old first
+	if (oldCompanyUuid && oldCompanyUuid !== companyUuid) {
+		await supabase
+			.from('farm_company_roles')
+			.delete()
+			.eq('farm_uuid', farmUuid)
+			.eq('company_role_id', companyRoleId)
+			.eq('company_uuid', oldCompanyUuid);
+	}
+
+	const { error } = await supabase
+		.from('farm_company_roles')
+		.upsert({
+			farm_uuid: farmUuid,
+			farm_code: farmCode,
+			company_role_id: companyRoleId,
+			company_uuid: companyUuid
+		});
+
+	if (error) throw error;
+}
+
+/** Delete a farm company role assignment */
+export async function deleteFarmCompanyRole(
+	farmUuid: string,
+	companyRoleId: number,
+	companyUuid: string
+) {
+	const { error } = await supabase
+		.from('farm_company_roles')
+		.delete()
+		.eq('farm_uuid', farmUuid)
+		.eq('company_role_id', companyRoleId)
+		.eq('company_uuid', companyUuid);
+
+	if (error) throw error;
+}
+
+/** Create a new company */
+export async function createCompany(company: { uuid: string; name: string }) {
+	const { error } = await supabase
+		.from('companies')
+		.insert(company);
 
 	if (error) throw error;
 }
